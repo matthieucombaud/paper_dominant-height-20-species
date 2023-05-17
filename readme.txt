@@ -10,7 +10,7 @@ Raw data are not provided in this depository since they are either publicly avai
 
 Target pipeline to prepare data  is "R/target_data_part1.R".
 R functions used in the pipeline used to prepare data are in "R/functions".
-Python script to prepare FYRE climate data are "netcf_precipitation.py" and "netcf_temperature.py".
+Python script to prepare FYRE climate data are in the "python" directory.
 
 Model calibration
 *****************
@@ -19,9 +19,9 @@ Script to launch model calibration for each species is "R/script_calibration_hdo
 Required R functions for the calibration are in "R/functions".
 cpp optimization function is "cpp/likelihood_final_beta.cpp".
 
-Model calibration outputs are in "calibration_output". In the output name:
-- "no_batch" indicate than calibration was done on the full sample
-- "with_batches" indicate than calibration was a 5-fold calibration
+Model calibration outputs are in "calibration_results". In the output name:
+- "no_batch" indicates than calibration was done on the full sample
+- "with_batches" indicates than calibration was a 5-fold calibration
 
 Model analysis
 *************
