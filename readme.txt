@@ -1,6 +1,4 @@
-"Climate change altered the dynamics of stand dominant height in forests during the past century - analysis of 20 European tree species"
-R scripts and functions accompanying the paper
-https://entrepot.recherche.data.gouv.fr/dataset.xhtml?persistentId=doi:10.57745/OZLVLX 
+R scripts and functions accompanying the paper "Climate change altered the dynamics of stand dominant height in forests during the past century - analysis of 20 European tree species"
 
 Data preparation
 ****************
