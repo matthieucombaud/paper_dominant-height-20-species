@@ -6,6 +6,23 @@ compute_height <- function(db_parameter,data_explanatory,initial.height,data_age
     
   }
   
+  # check stands are in the same order
+  
+  stand.order_explanatory <- unique(data_explanatory$stand)
+  stand.order_height <- unique(data_age_height$stand)
+  
+  if(length(setdiff(stand.order_explanatory, stand.order_height)) > 0 |
+     length(setdiff(stand.order_height, stand.order_explanatory)) > 0 ){
+    stop("not the same stands")
+  }
+  
+  if(!identical(stand.order_explanatory, stand.order_height)){ # reorder the database
+    
+    data_age_height <- data_age_height[match(stand.order_explanatory, stand)]
+    print("data_age_height has been reordered to match data_explanatory stand order")
+    
+  }
+  
   # filter for the relevant years
   data_explanatory_filtered <- rbindlist(lapply(data_age_height$stand, function(stand_selected){
     

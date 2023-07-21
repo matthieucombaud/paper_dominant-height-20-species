@@ -27,7 +27,11 @@ describe_species <- function(
       median.height = median(data_age_height$hfinal),
       mean.height = mean(data_age_height$hfinal),
       max.height = max(data_age_height$hfinal),
-      sd.height = sd(data_age_height$hfinal)
+      sd.height = sd(data_age_height$hfinal), 
+      min.year.origin = min(data_age_height$year_first - 1),
+      mean.year.origin = mean(data_age_height$year_first - 1),
+      max.year.origin = max(data_age_height$year_first- 1),
+      sd.year.origin = sd(data_age_height$year_first - 1)
       )
 
     return(summary_age_height_species.selected)

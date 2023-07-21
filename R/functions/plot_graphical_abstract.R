@@ -1,4 +1,4 @@
-plot_CCimpact_interspecific <- function(
+plot_graphical_abstract <- function(
   list_db_impact,
   db_species.name,
   comparison.age,
@@ -35,7 +35,7 @@ plot_CCimpact_interspecific <- function(
         median = median(height.gap.rel),
         Q1 = quantile(height.gap.rel, 0.25),
         Q3 = quantile(height.gap.rel, 0.75)
-        ), by = name.short
+        ), by = name
       ]
   db_impact_summary[, ":="(
     whisker_low_min = Q1 - 1.5 *(Q3 - Q1),
@@ -43,20 +43,20 @@ plot_CCimpact_interspecific <- function(
   )]
   db_impact_summary <- db_impact_summary[order(median, decreasing = F)]
   
-  factor.ordered <- db_impact_summary$name.short # 'all.CC_year' is the observed climate
-  db_impact$name.short <- factor(db_impact$name.short, levels = factor.ordered)
+  factor.ordered <- db_impact_summary$name # 'all.CC_year' is the observed climate
+  db_impact$name <- factor(db_impact$name, levels = factor.ordered)
   
   # proper whisker identification
 
-  for(name.short.selected in factor.ordered){
+  for(name.selected in factor.ordered){
     
-    whisker_high_max <- db_impact_summary[name.short == name.short.selected, whisker_high_max]
-    whisker_high.computed <- db_impact[name.short == name.short.selected & height.gap.rel <= whisker_high_max, max(height.gap.rel)]
+    whisker_high_max <- db_impact_summary[name == name.selected, whisker_high_max]
+    whisker_high.computed <- db_impact[name == name.selected & height.gap.rel <= whisker_high_max, max(height.gap.rel)]
     
-    whisker_low_min <- db_impact_summary[name.short == name.short.selected, whisker_low_min]
-    whisker_low.computed <- db_impact[name.short == name.short.selected & height.gap.rel >= whisker_low_min, min(height.gap.rel)]
+    whisker_low_min <- db_impact_summary[name == name.selected, whisker_low_min]
+    whisker_low.computed <- db_impact[name == name.selected & height.gap.rel >= whisker_low_min, min(height.gap.rel)]
     
-    db_impact_summary[name.short == name.short.selected, ":="(
+    db_impact_summary[name == name.selected, ":="(
       whisker_low = whisker_low.computed,
       whisker_high = whisker_high.computed
     )]
@@ -64,8 +64,8 @@ plot_CCimpact_interspecific <- function(
   }
 
   # identify cases with whiskers are out of the box
-  db_whisker_info_low <- db_impact_summary[whisker_low < y.min - 0.02, .(name.short, label = whisker_low)]
-  db_whisker_info_high <- db_impact_summary[whisker_high > y.max + 0.02, .(name.short, label = whisker_high)]
+  db_whisker_info_low <- db_impact_summary[whisker_low < y.min - 0.02, .(name, label = whisker_low)]
+  db_whisker_info_high <- db_impact_summary[whisker_high > y.max + 0.02, .(name, label = whisker_high)]
 
   
   # plot boxplot ----
@@ -73,7 +73,7 @@ plot_CCimpact_interspecific <- function(
   boxplot_impact_interspecific <- ggplot(
       data = db_impact, 
       aes(
-        x = name.short,
+        x = name,
         y = height.gap.rel * 100
       )
     ) +
@@ -89,8 +89,8 @@ plot_CCimpact_interspecific <- function(
     geom_text(
       data = db_impact_summary,
       aes(
-        x = name.short,
-        y = 100 * whisker_high + 0.5,
+        x = name,
+        y = 100 * Q3,
         label = stand.number
       ),
       size = 0.3 * text.size.main,
@@ -100,7 +100,7 @@ plot_CCimpact_interspecific <- function(
     geom_text(
       data = db_whisker_info_low,
       aes(
-        x = name.short,
+        x = name,
         y = 100 * y.min,
         label = paste0(round(100 * label)," %")
       ),
@@ -112,7 +112,7 @@ plot_CCimpact_interspecific <- function(
     geom_text(
       data = db_whisker_info_high,
       aes(
-        x = name.short,
+        x = name,
         y = 100 * y.max,
         label = paste0(round(100 * label)," %")
       ),
@@ -150,7 +150,7 @@ plot_CCimpact_interspecific <- function(
       limitsize = FALSE
     )
     
-  return(boxplot_impact_interspecific)
+  return(NULL)
   
 }
 

@@ -314,6 +314,34 @@ list(
     )
   ),
   
+  ### virtual average climate 1946-1975 ----
+  tar_target(
+    list_climate.virtual_1946_1975,
+    compute_climate.virtual(
+      year.average.climate.noCC = c(1946:1975),
+      db_climate.monthly = db_climate.monthly,
+      last_month = last_month,
+      species_code = species_list,
+      list_stand.named = list_stand.named,
+      db.radiation = db.radiation,
+      list_variables.varying = list(
+        ref_1946_1975 = "none"
+      ),
+      list_season.varying = list(
+        year = 1:12
+      )
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_climate.virtual_1946_1975.named,
+    name_list(
+      list_to_name = list_climate.virtual_1946_1975,
+      species_list = species_list
+    )
+  ),
+  
   ### compute actual climate ----
   tar_target(
     list_climate.actual,
@@ -343,19 +371,144 @@ list(
   ),
   
   
-  ## merge climate
-  # tar_target(
-  #   list_climate_ready,
-  #   merge_climate(
-  #     list_climate = list(
-  #       list_climate.virtual_1891_1920,
-  #       list_climate.virtual_1991_2020,
-  #       list_climate.actual
-  #       ),
-  #     species_list = species_list
-  #   )
-  # ),
-  # 
+  ### 10 years by 10 years ----
+  
+  tar_target(
+    list_climate.average_1881_1890,
+    compute_climate.virtual(
+      year.average.climate.noCC = c(1881:1890),
+      db_climate.monthly = db_climate.monthly,
+      last_month = last_month,
+      species_code = species_list,
+      list_stand.named = list_stand.named,
+      db.radiation = db.radiation,
+      list_variables.varying = list(
+        ref = "none"
+      ),
+      list_season.varying = list(
+        year = 1:12
+      )
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_climate.average_1881_1890.named,
+    name_list(
+      list_to_name = list_climate.average_1881_1890,
+      species_list = species_list
+    )
+  ),
+  
+  
+  tar_target(
+    list_climate.average_1951_1960,
+    compute_climate.virtual(
+      year.average.climate.noCC = c(1951:1960),
+      db_climate.monthly = db_climate.monthly,
+      last_month = last_month,
+      species_code = species_list,
+      list_stand.named = list_stand.named,
+      db.radiation = db.radiation,
+      list_variables.varying = list(
+        ref = "none"
+      ),
+      list_season.varying = list(
+        year = 1:12
+      )
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_climate.average_1951_1960.named,
+    name_list(
+      list_to_name = list_climate.average_1951_1960,
+      species_list = species_list
+    )
+  ),
+  
+  tar_target(
+    list_climate.average_1971_1980,
+    compute_climate.virtual(
+      year.average.climate.noCC = c(1971:1980),
+      db_climate.monthly = db_climate.monthly,
+      last_month = last_month,
+      species_code = species_list,
+      list_stand.named = list_stand.named,
+      db.radiation = db.radiation,
+      list_variables.varying = list(
+        ref = "none"
+      ),
+      list_season.varying = list(
+        year = 1:12
+      )
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_climate.average_1971_1980.named,
+    name_list(
+      list_to_name = list_climate.average_1971_1980,
+      species_list = species_list
+    )
+  ),
+  
+  tar_target(
+    list_climate.average_1991_2000,
+    compute_climate.virtual(
+      year.average.climate.noCC = c(1991:2000),
+      db_climate.monthly = db_climate.monthly,
+      last_month = last_month,
+      species_code = species_list,
+      list_stand.named = list_stand.named,
+      db.radiation = db.radiation,
+      list_variables.varying = list(
+        ref = "none"
+      ),
+      list_season.varying = list(
+        year = 1:12
+      )
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_climate.average_1991_2000.named,
+    name_list(
+      list_to_name = list_climate.average_1991_2000,
+      species_list = species_list
+    )
+  ),
+  
+  tar_target(
+    list_climate.average_2011_2020,
+    compute_climate.virtual(
+      year.average.climate.noCC = c(2011:2020),
+      db_climate.monthly = db_climate.monthly,
+      last_month = last_month,
+      species_code = species_list,
+      list_stand.named = list_stand.named,
+      db.radiation = db.radiation,
+      list_variables.varying = list(
+        ref = "none"
+      ),
+      list_season.varying = list(
+        year = 1:12
+      )
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_climate.average_2011_2020.named,
+    name_list(
+      list_to_name = list_climate.average_2011_2020,
+      species_list = species_list
+    )
+  ),
+  
   
   
   ## plot climate ----
@@ -697,6 +850,7 @@ list(
   
   ## Dynamics computation ----
 
+  ### virtual 1991-2020 ----
   tar_target(
     list_db_dynamics_climate.virtual_1991_2020,
     simulate_height_dynamics(
@@ -718,6 +872,7 @@ list(
     )
   ),
   
+  ### virtual 1891-1920 ----
   tar_target(
     list_db_dynamics_climate.virtual_1891_1920,
     simulate_height_dynamics(
@@ -739,6 +894,7 @@ list(
     )
   ),
   
+  ### virtual 1931-1960 ----
   tar_target(
     list_db_dynamics_climate.virtual_1931_1960,
     simulate_height_dynamics(
@@ -760,6 +916,7 @@ list(
     )
   ),
   
+  ### virtual 1961-1990 ----
   tar_target(
     list_db_dynamics_climate.virtual_1961_1990,
     simulate_height_dynamics(
@@ -781,6 +938,30 @@ list(
     )
   ),
   
+  ### virtual 1946-1975 ----
+  
+  tar_target(
+    list_db_dynamics_climate.virtual_1946_1975,
+    simulate_height_dynamics(
+      species_code = species_list,
+      year.simulation.initial = 1960,
+      comparison.age = 60,
+      list_climate = list_climate.virtual_1946_1975.named,
+      dir.model = dir.model,
+      dir.data.calibration = dir.data.calibration
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_dynamics_climate.virtual_1946_1975.named,
+    name_list(
+      list_to_name = list_db_dynamics_climate.virtual_1946_1975,
+      species_list = species_list
+    )
+  ),
+  
+  ### actual 1950-2020 ----
   tar_target(
     list_db_dynamics_climate.actual,
     simulate_height_dynamics(
@@ -802,8 +983,167 @@ list(
     )
   ),
   
+  ### actual 1960-2020 ----
+  
+  tar_target(
+    list_db_dynamics_climate.actual_1960_2020,
+    simulate_height_dynamics(
+      species_code = species_list,
+      year.simulation.initial = 1960,
+      comparison.age = 60,
+      list_climate = list_climate.actual.named,
+      dir.model = dir.model,
+      dir.data.calibration = dir.data.calibration
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_dynamics_climate.actual_1960_2020.named,
+    name_list(
+      list_to_name = list_db_dynamics_climate.actual_1960_2020,
+      species_list = species_list
+    )
+  ),
+  
+  ### actual 1871-1931 ----
+  
+  tar_target(
+    list_db_dynamics_climate.actual_1871_1931,
+    simulate_height_dynamics(
+      species_code = species_list,
+      year.simulation.initial = 1871,
+      comparison.age = 60,
+      list_climate = list_climate.actual.named,
+      dir.model = dir.model,
+      dir.data.calibration = dir.data.calibration
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_dynamics_climate.actual_1871_1931.named,
+    name_list(
+      list_to_name = list_db_dynamics_climate.actual_1871_1931,
+      species_list = species_list
+    )
+  ),
+  
+  
+  ### 10 years by 10 years ----
+  
+  tar_target(
+    list_db_dynamics_climate.average_1881_1890,
+    simulate_height_dynamics(
+      species_code = species_list,
+      year.simulation.initial = 1960,
+      comparison.age = 60,
+      list_climate = list_climate.average_1881_1890.named,
+      dir.model = dir.model,
+      dir.data.calibration = dir.data.calibration
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_dynamics_climate.average_1881_1890.named,
+    name_list(
+      list_to_name = list_db_dynamics_climate.average_1881_1890,
+      species_list = species_list
+    )
+  ),
+  
+  tar_target(
+    list_db_dynamics_climate.average_1951_1960,
+    simulate_height_dynamics(
+      species_code = species_list,
+      year.simulation.initial = 1960,
+      comparison.age = 60,
+      list_climate = list_climate.average_1951_1960.named,
+      dir.model = dir.model,
+      dir.data.calibration = dir.data.calibration
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_dynamics_climate.average_1951_1960.named,
+    name_list(
+      list_to_name = list_db_dynamics_climate.average_1951_1960,
+      species_list = species_list
+    )
+  ),
+  
+  tar_target(
+    list_db_dynamics_climate.average_1971_1980,
+    simulate_height_dynamics(
+      species_code = species_list,
+      year.simulation.initial = 1960,
+      comparison.age = 60,
+      list_climate = list_climate.average_1971_1980.named,
+      dir.model = dir.model,
+      dir.data.calibration = dir.data.calibration
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_dynamics_climate.average_1971_1980.named,
+    name_list(
+      list_to_name = list_db_dynamics_climate.average_1971_1980,
+      species_list = species_list
+    )
+  ),
+  
+  tar_target(
+    list_db_dynamics_climate.average_1991_2000,
+    simulate_height_dynamics(
+      species_code = species_list,
+      year.simulation.initial = 1960,
+      comparison.age = 60,
+      list_climate = list_climate.average_1991_2000.named,
+      dir.model = dir.model,
+      dir.data.calibration = dir.data.calibration
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_dynamics_climate.average_1991_2000.named,
+    name_list(
+      list_to_name = list_db_dynamics_climate.average_1991_2000,
+      species_list = species_list
+    )
+  ),
+  
+  tar_target(
+    list_db_dynamics_climate.average_2011_2020,
+    simulate_height_dynamics(
+      species_code = species_list,
+      year.simulation.initial = 1960,
+      comparison.age = 60,
+      list_climate = list_climate.average_2011_2020.named,
+      dir.model = dir.model,
+      dir.data.calibration = dir.data.calibration
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_dynamics_climate.average_2011_2020.named,
+    name_list(
+      list_to_name = list_db_dynamics_climate.average_2011_2020,
+      species_list = species_list
+    )
+  ),
+  
+  
+  
+  
   ## Dynamics graphs----
   
+  
+  ### virtual 1891-1920 vs actual 1950-2020 ---
   tar_target(
     list_graph_dynamics_virtual_1891_1920_vs_actual,
     plot_dynamics_group_new(
@@ -818,6 +1158,24 @@ list(
     pattern = species_list,
     iteration = "list"
   ),
+  
+  ### virtual 1946-1975 vs actual 1960-2020 ---
+  tar_target(
+    list_graph_dynamics_virtual_1946_1975_vs_actual_1960_2020,
+    plot_dynamics_group_new(
+      species_code = species_list,
+      list_db_dynamics.ref = list_db_dynamics_climate.virtual_1946_1975.named,
+      list_db_dynamics.interest = list_db_dynamics_climate.actual_1960_2020.named,
+      age.productivity = 60,
+      label.ref = "average 1946-1975",
+      label.interest = "actual 1960-2020",
+      db_species.name = db_species.name
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  
+  ### virtual 1891-1920 vs virtual 1991-2020 ---
   
   tar_target(
     list_graph_dynamics_virtual_1891_1920_vs_virtual_1991_2020,
@@ -882,6 +1240,21 @@ list(
       width = 15
     )),
   
+  tar_target(
+    graph_dynamics_61_virtual_1946_1975_vs_actual_1960_2020,
+    plot_dynamics_single(
+      plotlist = list_graph_dynamics_virtual_1946_1975_vs_actual_1960_2020,
+      species_list = species_list,
+      species_code = "61",
+      db_species.name = db_species.name,
+      graph.name = "graph_dynamics_61_virtual_1946_1975_vs_actual_1960_2020",
+      dir.saving = dir.saving,
+      text.size.main = 5,
+      height = 10,
+      width = 15
+    )),
+  
+  
   ## for all species ----
   
 
@@ -892,6 +1265,20 @@ list(
       species_list = species_list,
       db_species.name = db_species.name, 
       graph.name = "graph_dynamics_virtual_1891_1920_vs_actual",
+      y.max = 45,
+      text.size.main = 4,
+      height = 20, 
+      width = 17,
+      dir.saving = dir.saving
+    )),
+  
+  tar_target(
+    graph_dynamics_virtual_1946_1975_vs_actual_1960_2020,
+    plot_dynamics_all(
+      plotlist = list_graph_dynamics_virtual_1946_1975_vs_actual_1960_2020,
+      species_list = species_list,
+      db_species.name = db_species.name, 
+      graph.name = "graph_dynamics_virtual_1946_1975_vs_actual_1960_2020",
       y.max = 45,
       text.size.main = 4,
       height = 20, 
@@ -986,6 +1373,50 @@ list(
     )
   ),
   
+  ## actual 1871-1931 vs actual 1960-2020 ----
+  tar_target(
+    list_db_impact_actual_1871_1931_vs_actual_1960_2020,
+    compute_CCimpact(
+      species_code = species_list,
+      list_db_dynamics.ref = list_db_dynamics_climate.actual_1871_1931.named,
+      list_db_dynamics.interest = list_db_dynamics_climate.actual_1960_2020.named,
+      db_species.name = db_species.name,
+      comparison.age = 60
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_impact_actual_1871_1931_vs_actual_1960_2020.named,
+    name_list(
+      list_to_name = list_db_impact_actual_1871_1931_vs_actual_1960_2020,
+      species_list = species_list
+    )
+  ),
+  
+  
+  ## virtual 1946-1975 vs actual 1960-2020 ----
+  tar_target(
+    list_db_impact_virtual_1946_1975_vs_actual_1960_2020,
+    compute_CCimpact(
+      species_code = species_list,
+      list_db_dynamics.ref = list_db_dynamics_climate.virtual_1946_1975.named,
+      list_db_dynamics.interest = list_db_dynamics_climate.actual_1960_2020.named,
+      db_species.name = db_species.name,
+      comparison.age = 60
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_impact_virtual_1946_1975_vs_actual_1960_2020.named,
+    name_list(
+      list_to_name = list_db_impact_virtual_1946_1975_vs_actual_1960_2020,
+      species_list = species_list
+    )
+  ),
+  
+  ## virtual 1961-1990 vs virtual 1991-2020 ----
   tar_target(
     list_db_impact_virtual_1961_1990_vs_virtual_1991_2020,
     compute_CCimpact(
@@ -1006,8 +1437,105 @@ list(
     )
   ),
   
+  ### 10 years by 10 years ----
+  tar_target(
+    list_db_impact_average_1951_1960_vs_average_1881_1890,
+    compute_CCimpact(
+      species_code = species_list,
+      list_db_dynamics.ref = list_db_dynamics_climate.average_1881_1890.named,
+      list_db_dynamics.interest = list_db_dynamics_climate.average_1951_1960.named,
+      db_species.name = db_species.name,
+      comparison.age = 60
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_impact_average_1951_1960_vs_average_1881_1890.named,
+    name_list(
+      list_to_name = list_db_impact_average_1951_1960_vs_average_1881_1890,
+      species_list = species_list
+    )
+  ),
+  
+  tar_target(
+    list_db_impact_average_1971_1980_vs_average_1881_1890,
+    compute_CCimpact(
+      species_code = species_list,
+      list_db_dynamics.ref = list_db_dynamics_climate.average_1881_1890.named,
+      list_db_dynamics.interest = list_db_dynamics_climate.average_1971_1980.named,
+      db_species.name = db_species.name,
+      comparison.age = 60
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_impact_average_1971_1980_vs_average_1881_1890.named,
+    name_list(
+      list_to_name = list_db_impact_average_1971_1980_vs_average_1881_1890,
+      species_list = species_list
+    )
+  ),
+  
+  tar_target(
+    list_db_impact_average_1991_2000_vs_average_1881_1890,
+    compute_CCimpact(
+      species_code = species_list,
+      list_db_dynamics.ref = list_db_dynamics_climate.average_1881_1890.named,
+      list_db_dynamics.interest = list_db_dynamics_climate.average_1991_2000.named,
+      db_species.name = db_species.name,
+      comparison.age = 60
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_impact_average_1991_2000_vs_average_1881_1890.named,
+    name_list(
+      list_to_name = list_db_impact_average_1991_2000_vs_average_1881_1890,
+      species_list = species_list
+    )
+  ),
+  
+  tar_target(
+    list_db_impact_average_2011_2020_vs_average_1881_1890,
+    compute_CCimpact(
+      species_code = species_list,
+      list_db_dynamics.ref = list_db_dynamics_climate.average_1881_1890.named,
+      list_db_dynamics.interest = list_db_dynamics_climate.average_2011_2020.named,
+      db_species.name = db_species.name,
+      comparison.age = 60
+    ),
+    pattern = species_list,
+    iteration = "list"
+  ),
+  tar_target(
+    list_db_impact_average_2011_2020_vs_average_1881_1890.named,
+    name_list(
+      list_to_name = list_db_impact_average_2011_2020_vs_average_1881_1890,
+      species_list = species_list
+    )
+  ),
+  
+  
   
   ## Interspecific analysis  ----
+  
+  ### graphical abstract ---
+  
+  tar_target(
+    graphical_abstract,
+    plot_graphical_abstract(
+      list_db_impact = list_db_impact_virtual_1891_1920_vs_actual.named,
+      comparison.age = comparison.age,
+      db_species.name = db_species.name,
+      y.min = -0.13,
+      y.max = 0.23,
+      graph.name = "graphical_abstract",
+      dir.saving = dir.saving
+    )
+  ),
   
   ### virtual_1891_1920_vs_actual -----
   
@@ -1074,6 +1602,38 @@ list(
     )
   ),
   
+  
+  ### actual_1871_1931_vs_actual_1960_2020-----
+  
+  tar_target(
+    graph_CCimpact_interspecific_actual_1871_1931_vs_actual_1960_2020,
+    plot_CCimpact_interspecific(
+      list_db_impact = list_db_impact_actual_1871_1931_vs_actual_1960_2020,
+      comparison.age = 60,
+      db_species.name = db_species.name,
+      y.min = -0.2,
+      y.max = 0.2,
+      graph.name = "graph_CCimpact_interspecific_actual_1871_1931_vs_actual_1960_2020",
+      dir.saving = dir.saving
+    )
+  ),
+  
+  ### virtual_1946_1975_vs_actual_1960_2020-----
+  
+  tar_target(
+    graph_CCimpact_interspecific_virtual_1946_1975_vs_actual_1960_2020,
+    plot_CCimpact_interspecific(
+      list_db_impact = list_db_impact_virtual_1946_1975_vs_actual_1960_2020,
+      comparison.age = 60,
+      db_species.name = db_species.name,
+      y.min = -0.2,
+      y.max = 0.2,
+      graph.name = "graph_CCimpact_interspecific_virtual_1946_1975_vs_actual_1960_2020",
+      dir.saving = dir.saving
+    )
+  ),
+  
+  
   ### virtual_1961_1990_vs_virtual_1991_2020 -----
   
   tar_target(
@@ -1122,8 +1682,29 @@ list(
       dir.saving = dir.saving
     )
   ),
+  
+  ### 10 years by 10 years ----
+  
+  
+  tar_target(
+    list_boxplot_SI_change, 
+    compare_SI(
+      list_list_db_impact = list(
+        `1951_1960` = list_db_impact_average_1951_1960_vs_average_1881_1890.named,
+        `1971_1980` = list_db_impact_average_1971_1980_vs_average_1881_1890.named,
+        `1991_2000` = list_db_impact_average_1991_2000_vs_average_1881_1890.named,
+        `2011_2020` = list_db_impact_average_2011_2020_vs_average_1881_1890.named
+      ), 
+      db_species.name = db_species.name,
+      species_list = species_list, 
+      comparison.age = 60
+    )
+  ),
+  
 
   ## Intraspecific analysis as a function of initial climate ----
+  
+  ### virtual 1891-1920 vs actual 1950-2020 ----
   
   tar_target(
     graph_CCimpact_intraspecific_Tmean.initial_virtual_1891_1920_vs_actual,
@@ -1187,6 +1768,55 @@ list(
       height = 20, 
       width = 17,
       graph.name = "graph_intraspecific_impact_cwb.initial_virtual_1891_1920_vs_actual",
+      dir.saving = dir.saving
+    )
+  ),
+  
+  
+  ### virtual_1891_1920_vs_virtual_1991_2020 ----
+  tar_target(
+    graph_intraspecific_impact_Tmean.initial_virtual_1891_1920_vs_virtual_1991_2020,
+    plot_CCimpact_intraspecific(
+      species_list = setdiff(species_list, c("54", "73")), # exclude species without variations
+      db_species.name = db_species.name,
+      list_climate = list_climate.actual.named,
+      period.initial = year.average.climate.noCC,
+      list_db_impact = list_db_impact_virtual_1891_1920_vs_virtual_1991_2020,
+      variable.focus = "Tmean_9_8",
+      interval.length = 1,
+      label.x = "Annual mean temperature (°C, average 1891-1920)",
+      label.y = "Climate change impact",
+      text.size.main = 5,
+      text.size.axis = 3,
+      angle.x = 45,
+      height = 20, 
+      width = 17,
+      graph.name = "graph_intraspecific_impact_Tmean.initial_virtual_1891_1920_vs_virtual_1991_2020",
+      dir.saving = dir.saving
+    )
+  ),
+  
+  
+  ### virtual 1946-1975 vs actual 1960-2020 ----
+  
+  tar_target(
+    graph_CCimpact_intraspecific_Tmean.initial_virtual_1946_1975_vs_actual_1960_2020,
+    plot_CCimpact_intraspecific(
+      species_list = setdiff(species_list, c("54", "73")), # exclude species without variations
+      db_species.name = db_species.name,
+      list_climate = list_climate.actual.named,
+      period.initial = c(1946:1975),
+      list_db_impact = list_db_impact_virtual_1946_1975_vs_actual_1960_2020.named,
+      variable.focus = "Tmean_9_8",
+      interval.length = 1,
+      label.x = "Annual temperature (°C, average 1946-1975)",
+      label.y = "Climate change impact",
+      text.size.main = 5,
+      text.size.axis = 4,
+      angle.x = 45,
+      height = 20, 
+      width = 17,
+      graph.name = "graph_CCimpact_intraspecific_Tmean.initial_virtual_1946_1975_vs_actual_1960_2020",
       dir.saving = dir.saving
     )
   ),

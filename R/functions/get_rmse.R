@@ -11,11 +11,17 @@ get_rmse <- function(
     
     # compute rmse
     
-    rmse <- sqrt(1/length(model$height_simulated)*sum((model$height_simulated - model$height_observed)^2))
+    rmse <- sqrt(1/length(model$height_simulated)*sum((model$height_observed - model$height_simulated)^2))
+    rmspe <- 100 * sqrt(1/length(model$height_simulated)*sum(((model$height_observed - model$height_simulated) / model$height_observed) ^2))
+    bias <- sum(model$height_simulated - model$height_observed) / length(model$height_simulated)
+    bias.absolute <- sum(abs(model$height_simulated - model$height_observed)) / length(model$height_simulated)
     
     return(data.table(
       species_code = species.selected, 
-      rmse = rmse
+      rmse = rmse, 
+      rmspe = rmspe,
+      bias = bias, 
+      bias.absolute = bias.absolute
       ))
     
     

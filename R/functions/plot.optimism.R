@@ -72,6 +72,6 @@ plot.optimism <- function(
     units = "cm"
   )
   
-  return(NULL)
+  return(db_optimism)
   
 }
