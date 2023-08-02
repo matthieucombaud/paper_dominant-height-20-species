@@ -24,8 +24,9 @@ Model calibration outputs are in "calibration_results". In the output name:
 Model analysis
 *************
 
-Target pipeline to analyse model calibration outputs is "R/target_analysis_part1_new.R".
+Target pipeline to analyse model calibration outputs is "R/target_analysis_part1_new.R"
 R functions used in the pipeline used to analyze model calibration outputs are in "R/functions".
-Script to produce the figures and tables is in "script_fig_tab_xxx.Rmd". Figures and tables are produced from the database built by "R/target_analysis_part1_new.R" and stored as target object.
+Script to produce the figures and tables is in the directory "R".
+
 
 For additional information, please refer to the paper and contact Matthieu COMBAUD at m.combaud@gmail.com.
