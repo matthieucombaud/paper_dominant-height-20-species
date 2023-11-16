@@ -1,0 +1,2215 @@
+---
+title: "Untitled"
+author: "MC"
+date: "30/06/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+```
+
+```{r, include = F}
+
+packages.needed <- c(
+  "targets",
+  "flextable", 
+  "dplyr",
+  "ggplot2", 
+  "data.table", 
+  "stringr",
+  "cowplot",
+  "ggpubr"
+  )
+
+lapply(packages.needed, library, character.only = TRUE)
+
+```
+
+# Load functions
+
+```{r, include = FALSE, echo = FALSE}
+lapply(grep("R$", list.files("R/functions", recursive = TRUE), value = TRUE), function(x) source(file.path("R/functions", x)))
+
+```
+
+
+```{r specify directories, include = F}
+
+dir.store.data <- paste0("store_data_part1")
+dir.store.calibration <- paste0("store_calibration_nlminb.uncons")
+
+dir.fig.tab <- "paper_pure_stand/soumission_3/figure_tables_2023-11-12" # repertory where graph are saved
+dir.create(dir.fig.tab, recursive = TRUE)
+
+```
+
+# Load objects
+
+```{r useful objects}
+
+db.species.name <- tar_read(db_species.name, store = dir.store.data)
+db.stand.number <- tar_read(db_stand.number.final, store = dir.store.data)
+list_data.inference <- tar_read(list_db_species_for_inference_keep, store = dir.store.data)
+db_climate.monthly <- tar_read(db_climate_pure_stands, store = dir.store.data)
+db.stand <- tar_read(db.pure.stand.calib, store = dir.store.data)
+db.radiation <- tar_read(db.radiation, store = dir.store.data)
+db.envi <- tar_read(db.envi.pure.stand, store = dir.store.data)
+list.db.normalization <- tar_read(list_normalization_constant, store = dir.store.data)
+
+
+list.species <- tar_read(list_species, store = dir.store.calibration)
+c.var_non.clim <- setdiff(tar_read(include_variable_non_climatic, store = dir.store.calibration), "sgdd_1_12")
+qualitative_variables <- tar_read(qualitative_variables, store = dir.store.calibration)
+list_db_param <- tar_read(list_db_param, store = dir.store.calibration)
+tar_load(db.climate.ref, store = dir.store.calibration)
+tar_load(db.climate.actual, store = dir.store.calibration)
+tar_load(ref.period, store = dir.store.calibration)
+tar_load(comparison.age, store = dir.store.calibration)
+db.Hp_pred <- tar_read(db.Hp_pred, store = dir.store.calibration)
+db_optimism <- tar_read(db_optimism, store = dir.store.calibration)
+
+
+# add name of the scientific authority for species name
+
+db_taxref <- as.data.table(readr::read_delim("data_source/TAXREF_v13_2019/TAXREFv13.txt", delim = "\t",escape_double = FALSE,trim_ws = TRUE))
+
+db.species.name <- merge(db.species.name, unique(db_taxref[, .(cd_ref = CD_REF, name.authority = NOM_VALIDE)]), by = "cd_ref")
+
+
+```
+
+
+# Table species studied
+
+```{r speciesstudied, results='asis'}
+
+db_description_species <- rbindlist(lapply(list.species, function(species.selected){
+  
+  data.inference.sel <- list_data.inference[[species.selected]]
+  
+  data_explanatory_complete_normalized <- data.inference.sel$db_explanatory_normalized_complete
+  data_age_height <- data.inference.sel$data_age_height
+  db_stand_number <- data.inference.sel$stand_number
+  db_normalization_constant <- data.inference.sel$db_normalization_constant
+  
+  
+  summary_species.selected <- data.table(
+    species = species.selected,
+    stand.number = db_stand_number["length_IFN_data_final"],
+    min.age = min(data_age_height$age),
+    median.age = median(data_age_height$age),
+    mean.age = mean(data_age_height$age),
+    max.age = max(data_age_height$age),
+    sd.age = sd(data_age_height$age),
+    min.height = min(data_age_height$hfinal),
+    median.height = median(data_age_height$hfinal),
+    mean.height = mean(data_age_height$hfinal),
+    max.height = max(data_age_height$hfinal),
+    sd.height = sd(data_age_height$hfinal), 
+    min.year.origin = min(data_age_height$year_first - 1),
+    mean.year.origin = mean(data_age_height$year_first - 1),
+    max.year.origin = max(data_age_height$year_first- 1),
+    sd.year.origin = sd(data_age_height$year_first - 1)
+    )
+
+  return(summary_species.selected)
+  
+}))
+  
+db_description_species <- merge(db_description_species, db.species.name, by.x = "species", by.y = "code")
+
+
+db_description_species_print <- db_description_species[,
+    .(name.authority, stand.number, mean.height, sd.height, mean.age, sd.age, min.age, max.age, min.year.origin, max.year.origin)
+    ][
+      # order(stand.number, decreasing = TRUE)
+      order(db_description_species$name.authority)
+        ] %>% 
+  flextable() %>% 
+  italic(i = NULL, j = 1, italic = TRUE, part = "body") %>%
+  colformat_double(j = c(2), big.mark = "", digits = 0) %>%
+  colformat_double(j = c(3:6), digits = 1) %>%
+  colformat_double(j = c(7:10), big.mark = "", digits = 0) %>%
+  set_header_labels(name.authority = "Species", stand.number = "Number of stands", mean.age = "Mean", sd.age = "s.d.", min.age = "Min", max.age = "Max", mean.height = "Mean", sd.height = "s.d", min.year.origin = "Min", max.year.origin = "Max") %>%
+  # set_caption(
+  #   caption = "Calibration data", 
+  #   autonum = T
+  #   ) %>% 
+  add_header_row(top = TRUE, values = c("", "", "SDH (m)", "Age (year)", "Stand establishment date"), colwidths = c(1,1,2,4,2)) %>%
+  # add_footer_row(values = "Age in years, SDH in meters. Only stands with complete data and with origin-year after 1871 are considered. NFI data contain a single SDH measure for each stand. s.d. : standard deviation",colwidths = 10) %>%
+  theme_booktabs() %>% # default theme
+  # font(fontname = "Calibri (Body)", part = "all") %>% 
+  fontsize(size = 8, part = "all") %>% 
+  height_all(height = 1, unit = "cm") %>%
+  width(width = 1.5, unit = "cm") %>%
+  width(width = 1.5, j = 2, unit = "cm") %>%
+  width(width = 3.5, j = 1, unit = "cm") %>%
+  align_text_col(align = "center", header = TRUE, footer = TRUE) %>%
+  align_nottext_col(align = "center", header = TRUE, footer = TRUE) %>%
+  vline(i = NULL, j = NULL, border = officer::fp_border(color="black"), part = "all")
+  # fit_to_width(
+  #   max_width = 17,
+  #   inc = 1L,
+  #   max_iter = 10,
+  #   unit = "cm"
+  #   )
+
+save_as_docx(db_description_species_print, path = paste0(dir.fig.tab, "/stand_description.docx"))
+
+```
+
+# Number of stands with a single height measure
+
+```{r}
+
+db.height <- unique(db.envi[,.(stand, Value1.HTOT, Value2.HTOT)])
+db.height <- db.height[stand %in% db.stand$stand]
+
+db.height[, table(is.na(Value2.HTOT))]
+
+```
+
+
+# Initial climate and climate dynamics
+
+```{r plot climate}
+
+# boxplot climate initial
+  list_boxplot_climate.initial <- plot_climate.distribution(
+    db.climate = db.climate.actual, 
+    db.stand = db.stand,
+    species_list = list.species,
+    period.averaging = ref.period, # initial period of the comparison
+    variable.focus = c(
+      "Tmean_9_8", "precipitation_9_8","cwb_9_8",
+      "Tmean_6_8", "precipitation_6_8","cwb_6_8"
+    ),
+    db.species.name = db.species.name # db containing the correspondence species name / species code
+  )
+
+# dynamics temperature
+  graph_Tmean <- plot_climate.dynamics_barplot_new(
+    db.climate.interest = db.climate.actual,
+    plotting.period = c(1950 : 2020),
+    averaging.period = ref.period,
+    variable.focus = "Tmean_9_8",
+    title = "Annual mean temperature anomaly compared to 1891-1920 (°C)",
+    color.positive = "red", 
+    color.negative  = "blue"
+  )
+  
+  # ggsave(
+  #   filename = paste0("graph.temperature.anomaly", ".jpg"),
+  #   plot = graph_Tmean,
+  #   path = dir.fig.tab,
+  #   height = 7,
+  #   width = 6,
+  #   units = "cm",
+  #   limitsize = FALSE
+  # )
+
+# dynamics precipitation
+  graph_precipitation <- plot_climate.dynamics_barplot_new(
+    db.climate.interest = db.climate.actual,
+    plotting.period = c(1950 : 2020),
+    averaging.period = ref.period,
+    variable.focus = "precipitation_9_8",
+    title = "Annual precipitation anomaly compared to 1891-1920 (°C)",
+    color.positive = "green", 
+    color.negative  = "orange"
+  )
+
+  # ggsave(
+  #   filename = paste0("graph.precipitation.anomaly", ".jpg"),
+  #   plot = graph_precipitation,
+  #   path = dir.fig.tab,
+  #   height = 7,
+  #   width = 6,
+  #   units = "cm",
+  #   limitsize = FALSE
+  # )
+    
+# dynamics cwb
+  graph_cwb <-  plot_climate.dynamics_barplot_new(
+    db.climate.interest = db.climate.actual,
+    plotting.period = c(1950 : 2020),
+    averaging.period = ref.period,
+    variable.focus = "cwb_9_8",
+    title = "Annual climatic water balance anomaly compared to 1891-1920 (°C)",
+    color.positive = "green", 
+    color.negative  = "orange"
+  )
+
+  # ggsave(
+  #   filename = paste0("graph.cwb.anomaly", ".jpg"),
+  #   plot = graph_cwb,
+  #   path = dir.fig.tab,
+  #   height = 7,
+  #   width = 6,
+  #   units = "cm",
+  #   limitsize = FALSE
+  # )
+  
+# arrange graphs
+
+  # size parameters
+    text.size.main = 7
+
+  # graph reference period ----
+  
+  graph_climate.reference <- plot_grid(
+    plotlist = list(
+      list_boxplot_climate.initial[["Tmean_9_8"]] +
+        geom_boxplot(
+          outlier.shape = NA,
+          fill = "grey",
+          linewidth = 0.1
+        ) +
+        theme_bw() + 
+        xlim(c(0,NA)) +
+        theme(
+          axis.title = element_blank(),
+          axis.text = element_text(size = text.size.main),
+          plot.margin = unit(c(0.4,0,0,0), "cm")
+        ) +
+        geom_vline(xintercept = 0, lty = "dashed", linewidth = 0.2),
+      list_boxplot_climate.initial[["precipitation_9_8"]] +
+        geom_boxplot(
+          outlier.shape = NA,
+          fill = "grey",
+          linewidth = 0.1
+        ) +
+        theme_bw() + 
+        xlim(c(0,NA)) +
+        theme(
+          axis.title = element_blank(),
+          axis.text = element_text(size = text.size.main),
+          axis.text.y = element_blank(),
+          plot.margin = unit(c(0.4,0,0,0), "cm")
+        ) +
+        geom_vline(xintercept = 0, lty = "dashed", linewidth = 0.2),
+      list_boxplot_climate.initial[["cwb_9_8"]] +
+        geom_boxplot(
+          outlier.shape = NA,
+          fill = "grey",
+          linewidth = 0.1
+        ) +
+        theme_bw() + 
+        # xlim(c(0,16)) +
+        theme(
+          axis.title = element_blank(),
+          axis.text = element_text(size = text.size.main),
+          axis.text.y = element_blank(),
+          plot.margin = unit(c(0.4,0,0,0), "cm")
+        ) +
+        geom_vline(xintercept = 0, lty = "dashed", linewidth = 0.2)
+    ),
+    labels = c(
+      "Annual mean temperature (°C)",
+      "Annual precipitation (mm)",
+      "Annual climatic water balance (mm)"
+    ),
+    ncol = 3,
+    rel_widths = c(1.7,1,1),
+    label_size = text.size.main,
+    label_x = c(0.4, 0.1, 0.1),
+    label_y = 1,
+    hjust = 0,
+    vjust = 1.5
+  ) + theme(
+    plot.margin = unit(c(0.4,0,0.2,0.1), "cm")
+  )
+  
+  # graph climate dynamics ----
+    
+    # get legend
+    graph_Tmean_temp <- graph_Tmean + theme(
+      legend.direction ="horizontal",
+      legend.text = element_text(size = text.size.main), 
+      legend.key.height = unit(0.2, 'cm'), #change legend key height
+      legend.key.width = unit(0.2, 'cm'), #change legend key width
+      legend.title = element_text(size = text.size.main) #change legend title font size
+      ) +
+      scale_fill_manual(
+        name = "Climate anomaly",
+        values = c("red", "blue"),
+        breaks = c("positive", "negative"), 
+        labels = c("positive", "negative")
+      )
+    legend.dynamics.Tmean<- get_legend(graph_Tmean_temp)
+    
+    graph_precipitation_temp <- graph_precipitation + theme(
+      legend.direction ="horizontal",
+      legend.text = element_text(size = text.size.main), 
+      legend.key.height = unit(0.2, 'cm'), #change legend key height
+      legend.key.width = unit(0.2, 'cm'), #change legend key width
+      legend.title = element_text(size = text.size.main) #change legend title font size
+    )+
+      scale_fill_manual(
+        name = "Climate anomaly",
+        values = c("green", "orange"),
+        breaks = c("positive", "negative"), 
+        labels = c("positive", "negative")
+      )
+    legend.dynamics.precipitation <- get_legend(graph_precipitation_temp)
+    
+    # plot
+    graph_climate.dynamics <- plot_grid(
+      plotlist = list(
+          graph_Tmean +
+            theme_bw() + 
+            # geom_line(aes(y=data.table::frollmean(value.recent, 5, align = "center", na.rm = T)), col = "red") +
+            theme(
+              legend.position = "none",
+              plot.title = element_blank(),
+              plot.margin = unit(c(0.4,0,0,0), "cm"),
+              axis.text = element_text(size = text.size.main),
+              axis.title = element_text(size = text.size.main)
+            ) +
+            scale_fill_manual(
+              name = "Climate anomaly",
+              values = c("red", "blue"),
+              breaks = c("positive", "negative"), 
+              labels = c("positive", "negative")
+            ) ,
+          graph_precipitation +
+            theme_bw() + 
+            # geom_line(aes(y=data.table::frollmean(value.recent, 5, align = "center", na.rm = T)), col = "red") +
+            theme(
+              legend.position = "none",
+              plot.title = element_blank(),
+              plot.margin = unit(c(0.4,0,0,0), "cm"),
+              axis.text = element_text(size = text.size.main),
+              axis.title = element_text(size = text.size.main)
+            ) +
+            scale_fill_manual(
+              name = "Climate anomaly",
+              values = c("green", "orange"),
+              breaks = c("positive", "negative"), 
+              labels = c("positive", "negative")
+            ),
+          graph_cwb +
+            theme_bw() + 
+            # geom_line(aes(y=data.table::frollmean(value.recent, 5, align = "center", na.rm = T)), col = "red") +
+            theme(
+              legend.position = "none",
+              plot.title = element_blank(),
+              plot.margin = unit(c(0.4,0,0,0), "cm"),
+              axis.text = element_text(size = text.size.main),
+              axis.title = element_text(size = text.size.main)
+            ) +
+            scale_fill_manual(
+              name = "Climate anomaly",
+              values = c("green", "orange"),
+              breaks = c("positive", "negative"), 
+              labels = c("positive", "negative")
+            )
+          ), 
+      labels = c(
+        "Annual mean temperature anomaly (°C)",
+        "Annual precipitation anomaly (mm)",
+        "Annual climatic water balance anomaly (mm)"
+        ),
+      ncol = 3,
+      label_size = text.size.main,
+      label_x = 0.1,
+      label_y = 1,
+      hjust = 0,
+      vjust = 1.5
+    )
+    
+    # add legend
+    
+    graph_climate.dynamics_legend <- plot_grid(
+      plotlist = list(legend.dynamics.Tmean, legend.dynamics.precipitation), 
+      ncol = 2, 
+      rel_widths = c(1,2)
+    )
+  
+  # all
+  graph_all <- plot_grid(
+    plotlist = list(
+      graph_climate.reference + theme(
+        plot.margin = unit(c(0.5,0.3,0,0), "cm")
+      ),
+      graph_climate.dynamics + theme(
+        plot.margin = unit(c(0.5,0.3,0,0), "cm")
+      ),
+      graph_climate.dynamics_legend
+    ),
+    nrow = 3,
+    labels = c(
+      "Reference climate (average 1891- 1920)",
+      "Climate anomaly compared to reference climate (average 1891-1920)", 
+      NULL
+      ),
+    label_size = 1.3 * text.size.main,
+    label_x = 0,
+    label_y = 1,
+    hjust = 0,
+    vjust = 1.5,
+    rel_heights = c(1,1,0.1)
+  )
+  
+  ggsave(
+    filename = paste0("graph.climate.initial.and.anomaly", ".jpg"),
+    plot = graph_all,
+    path = dir.fig.tab,
+    height = 15,
+    width = 17,
+    units = "cm",
+    limitsize = FALSE
+  )
+  
+```
+
+
+# Graph partial impact
+
+```{r partial impact prepare}
+list_variable.impact <- tar_read(list_direct.partial.impact, store = dir.store.calibration)
+
+  db_variable_impact <- rbindlist(list_variable.impact)[species %in% list.species]
+  db_variable_impact <- merge(db_variable_impact, db.species.name[, .(code, name, name.short)], by.x  = "species", by.y = "code")
+  db_variable_impact$name <- as.factor(db_variable_impact$name)
+  
+  db_variable_impact[, season := paste0(str_split(variable, "_", simplify = T)[,2],"_",str_split(variable, "_", simplify = T)[,3])]
+  db_variable_impact[, season.name := character()]
+  db_variable_impact[ season == "9_11", season.name := "Fall"]
+  db_variable_impact[ season == "12_2", season.name := "Winter"]
+  db_variable_impact[ season == "9_2", season.name := "Fall + winter"]
+  db_variable_impact[ season == "3_5", season.name := "Spring"]
+  db_variable_impact[ season == "6_8", season.name := "Summer"]
+  db_variable_impact[ season == "3_8", season.name := "Spring + summer"]
+  db_variable_impact[ season == "1_12", season.name := "Whole year"]
+  
+  # build legend
+  
+  # vec.color <- rainbow(length(levels(db_variable_impact$name)))
+  vec.color <-  c(
+    "#FF0000",
+    "#FF4D00",
+    "#FF9900",
+    "#8B8878",
+    "#458B00",
+    "#6E8B3D",
+    "#8B6914",
+    "#008B00",
+    "#8B3A62",
+    "#008B8B",
+    "#FF8C69",
+    "#00B3FF",
+    "#0066FF",
+    "#001AFF",
+    "#3300FF",
+    "#7F00FF",
+    "#CC00FF",
+    "#FF00E6",
+    "#FF0099",
+    "#FF004D"
+  )
+  
+  vec.color <- vec.color[1 : length(levels(db_variable_impact$name))] # in case we deal with a subsample of species
+  
+  db_legend <- db.species.name[name %in% levels(db_variable_impact$name)]
+  db_legend[, ":="(color = vec.color, label = paste0(name, " (", name.short, ")"))]
+  
+  barplot(1 : length(levels(db_variable_impact$name)), col = vec.color)
+  
+  # param graph
+  text.size.main <- 6
+
+  # variables to create loop on
+  list_season.name <- c("Fall","Winter","Fall + winter","Spring","Summer","Spring + summer","Whole year")
+  variable.type <- c("Tmean", "precipitation", "cwb", "sgdd")
+  
+  list_graph_partial.impact <- lapply(variable.type, function(variable.type.selected){
+    
+    list_graph_partial.impact_variable.type.selected <- lapply(list_season.name, function(season.name.selected){
+      
+      db_variable_impact.selected <- db_variable_impact[
+        str_detect(variable, variable.type.selected) & season.name == season.name.selected
+      ]
+      
+      if(nrow(db_variable_impact.selected) == 0){return(NULL)} # case no variable
+      
+      db_label.selected <- unique(db_variable_impact.selected[, .(
+        x = value_abs[3] + 0.2 * abs(value_abs[1]),
+        y = SDH[3] + 2,
+        name = name, 
+        name.short = name.short
+      ),
+      by = c("species", "variable")]
+      )
+      
+      db_legend.selected <- db_legend[name %in% db_variable_impact.selected$name]
+      
+      
+      graph_partial.impact_variable.type.selected_season.selected <- ggplot(
+      ) +
+        geom_line(
+          data = db_variable_impact.selected, 
+          aes(
+            x = value_abs,
+            y = SDH, 
+            color = name
+          ),
+          linewidth = 0.15
+        ) +
+        ggrepel::geom_text_repel(
+          data = db_label.selected,
+          aes(
+            x = x,
+            y = y, 
+            color = name,
+            label = name.short
+          ),
+          size = 3,
+          min.segment.length = unit(1, "cm"), 
+          arrow = arrow()
+        ) +
+        theme_bw() +
+        ylim(10, 40) +
+        scale_linetype_manual(
+          values = c("TRUE" = "solid", "FALSE" = "dashed")
+        ) +
+        scale_color_manual(
+          values = db_legend.selected$color,
+          breaks = db_legend.selected$name, 
+          labels = db_legend.selected$label
+        ) +
+        guides(
+          color = guide_legend(title = "Species", nrow = 5, byrow = TRUE),
+          # color = "none",
+          # linetype = guide_legend(title = NULL, keywidth = 2),
+          linetype = "none",
+          size = "none"
+        ) +
+        labs(
+          x = variable.type.selected, 
+          y = "Site index (m)"
+        ) + 
+        theme(legend.direction ="horizontal")
+      
+      return(graph_partial.impact_variable.type.selected_season.selected)
+      
+    })
+    names(list_graph_partial.impact_variable.type.selected) <- list_season.name
+    
+    return(list_graph_partial.impact_variable.type.selected)
+    
+  })
+  names(list_graph_partial.impact) <- variable.type
+  
+
+
+```
+
+```{r partial impact arrange - horizontal}
+
+# arrange plot
+margins.graph <- c(0, 0, 0.4, 0)
+angle.graph <- 45
+ratio.season.graph <- 1/25
+
+# text variables
+  # text.variable <- plot_grid(
+  #   plotlist = lapply(c("Mean temperature", "Precipitation", "Climatic water balance"), function(season.name.selected){
+  #     ggpubr::text_grob(season.name.selected, rot = 90, size = 8, just = "top")
+  #   }),
+  #   ncol = 1,
+  #   nrow = 3
+  # )
+
+  text.variable <- plot_grid( # in fact I do not print the variable but Si
+    plotlist = lapply(rep("Site index (m)", 3), function(season.name.selected){
+      ggpubr::text_grob(season.name.selected, rot = 90, size = 8, just = "top")
+    }),
+    ncol = 1,
+    nrow = 3
+  )
+  
+  text.variable <- plot_grid(
+    plotlist = list(
+      NULL,
+      text.variable
+    ),
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(ratio.season.graph, 1)
+  )
+
+# text season
+
+  text.season <- plot_grid(
+    plotlist = lapply(list_season.name, function(season.name.selected){
+      ggpubr::text_grob(season.name.selected, rot = 0, size = 8)
+    }),
+    ncol = length(list_season.name),
+    nrow = 1
+  )
+
+  # get legend ----
+  
+  graph.temp <- ggplot(
+    data = db_variable_impact[, .(name, value, SDH)],
+    aes(
+      x = value,
+      y = SDH, 
+      color = name
+    )
+  ) +
+    geom_point() +
+    scale_color_manual(
+      values = db_legend$color,
+      name = db_legend$name, 
+      label = db_legend$label
+    ) +
+    guides(
+      color = guide_legend(title = NULL, nrow = 3, byrow = TRUE),
+      size = "none"
+    )+
+    theme(
+      legend.key.height = unit(0.2, 'cm'), #change legend key height
+      legend.key.width = unit(0.2, 'cm'), #change legend key width
+      legend.title = element_text(size = 8), #change legend title font size
+      legend.text = element_text(size = 8)
+    )
+  legend <- get_legend(graph.temp)
+  
+  
+  text.size <- 6
+  
+# graph temperature and sgdd ----
+  
+  # attention we plot together tempeture for non whole year period and gdd for the whole year period, since no whole yera temperature is never significant
+  
+  graph_sgdd <- plot_grid(
+    plotlist = lapply("Whole year", function(season.selected){
+      
+      x <- list_graph_partial.impact$sgdd[[season.selected]]
+      
+      if(is.null(x)){
+        x <- text_grob("No effect", size = 6)
+        return(x)
+      }
+      
+      x <- x + 
+        labs(y = "Site index (m)") +
+        theme(
+          legend.position = "none",
+          plot.title = element_blank(), 
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          # axis.title.y = element_text(hjust = 0.5, vjust = 0, angle = 90, size = 8),
+          axis.text = element_text(size = text.size),
+          axis.text.x = element_text(angle = angle.graph, hjust = 1)
+        )
+      
+      return(x)
+      
+    }),
+    nrow = 1,
+    ncol = 1
+  ) +
+    draw_label("SGDD (°C)", x = 0.5, y = 0, hjust = 0.5, vjust = 1, angle = 0, size = 8)
+  
+  graph_temperature <- plot_grid(
+    plotlist = lapply(setdiff(list_season.name, "Whole year"), function(season.selected){
+      
+      x <- list_graph_partial.impact$Tmean[[season.selected]]
+      
+      if(is.null(x)){
+        x <- ggpubr::text_grob("No effect", size = 6)
+        return(x)
+      }
+      
+      x <- x +
+        labs(y = "Site index (m)") +
+        theme(
+          legend.position = "none",
+          plot.title = element_blank(), 
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          # axis.title.y = element_text(hjust = 0.5, vjust = 0, angle = 90, size = 8),
+          axis.text = element_text(size = text.size),
+          axis.text.x = element_text(angle = angle.graph, hjust = 1)
+        )
+      
+      return(x)
+      
+    }),
+    ncol = 6,
+    nrow = 1
+  ) +
+    draw_label("Temperature (°C)", x = 0.5, y = 0, hjust = 0.5, vjust = 1, angle = 0, size = 8)
+  
+  graph_temperature_sgdd <- plot_grid(
+    plotlist = list(
+      graph_temperature,
+      graph_sgdd
+    ),
+    ncol = 2,
+    nrow = 1,
+    rel_widths = c(6, 1)
+  ) +
+    theme(plot.margin = unit(margins.graph, "cm"))
+  
+  
+  # precipitations ----
+  
+  graph_precipitations <- plot_grid(
+    plotlist = lapply(setdiff(list_season.name, "Whole year"), function(season.selected){
+      
+      x <- list_graph_partial.impact$precipitation[[season.selected]]
+      
+      if(is.null(x)){
+        x <- ggpubr::text_grob("No effect", size = 6)
+        return(x)
+      }
+      
+      x <- x + 
+      labs(y = "Site index (m)") +
+      theme(
+        legend.position = "none",
+        plot.title = element_blank(), 
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        # axis.title.y = element_text(hjust = 0.5, vjust = 0, angle = 90, size = 8),        axis.text = element_text(size = text.size.main),
+        axis.text = element_text(size = text.size),
+        axis.text.x = element_text(angle = angle.graph, hjust = 1)
+      )
+      
+      return(x)
+      
+    }),
+    ncol = 6,
+    nrow = 1
+  ) +
+    draw_label("Precipitations (mm)", x = 0.5, y = 0, hjust = 0.5, vjust = 1, angle = 0, size = 8) +
+    # draw_label("Site index (m)", x = 0, y = 0.5, hjust = 0, vjust = 0.5, angle = 90, size = text.size.main)+
+    theme(plot.margin = unit(margins.graph, "cm"))
+  
+  
+  # cwb ----
+  
+  graph_cwb <- plot_grid(
+    plotlist = lapply(setdiff(list_season.name, "Whole year"), function(season.selected){
+      
+      x <- list_graph_partial.impact$cwb[[season.selected]]
+      
+      if(is.null(x)){
+        x <- ggpubr::text_grob("No effect", size = 6)
+        return(x)
+      }
+      
+      x <- x + 
+      labs(y = "Site index (m)") +
+      theme(
+        legend.position = "none",
+        plot.title = element_blank(), 
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        # axis.title.y = element_text(hjust = 0.5, vjust = 0, angle = 90, size = 8),
+        axis.text = element_text(size = text.size),
+        axis.text.x = element_text(angle = angle.graph, hjust = 1)
+      ) 
+      
+      return(x)
+      
+    }),
+    ncol = 6,
+    nrow = 1
+  ) +
+    draw_label("Climatic water balance (mm)", x = 0.5, y = 0, hjust = 0.5, vjust = 1, angle = 0, size = 8) +
+    # draw_label("Site index (m)", x = 0, y = 0.5, hjust = 0, vjust = 0.5, angle = 90, size = text.size.main)+
+    theme(plot.margin = unit(margins.graph, "cm"))
+
+# arrange ----
+  
+  graph_temperature_precipitations_cwb <- plot_grid(
+    plotlist = list(
+      graph_temperature_sgdd,
+      plot_grid(plotlist = list (graph_precipitations, NULL), rel_widths = c(6,1)),
+      plot_grid(plotlist = list (graph_cwb, NULL), rel_widths = c(6,1))
+    ),
+    ncol = 1,
+    nrow = 3
+  )
+  
+  graph_all <- plot_grid(
+    plotlist = list(
+      text.season,
+      graph_temperature_precipitations_cwb
+    ),
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(ratio.season.graph, 1)
+  )
+  
+  graph_partial.impact_hor <- plot_grid(
+    plotlist = list(
+      text.variable,
+      graph_all
+    ),
+    ncol = 2,
+    nrow = 1,
+    rel_widths = c(1/30, 1)
+  ) +
+  theme(plot.margin = unit(c(0,0,0.2,0), "cm"))
+  
+  graph_partial.impact_hor  <- plot_grid(
+    plotlist = list(
+      graph_partial.impact_hor,
+      legend
+    ),
+    ncol = 1,
+    nrow = 2,
+    rel_heights = c(1, 1/10)
+  )
+  
+ggsave(
+  filename = "graph_partial.impact_hor.jpg",
+  plot = graph_partial.impact_hor,
+  path = dir.fig.tab,
+  height = 14, 
+  width = 25, 
+  units = "cm",
+  dpi = 1200,
+  limitsize = FALSE
+)
+
+
+```
+
+
+# Graph dynamics Abies alba
+
+```{r}
+tar_load(db.dynamics_climate.ref, store = dir.store.calibration)
+tar_load(db.dynamics_climate.actual, store = dir.store.calibration)
+
+list.graph.dynamics.comparison <- lapply(list.species, function(sp.sel){
+  
+  graph <- plot_dynamics_pure(
+    species.sel = sp.sel,
+    db.dynamics_climate.ref = db.dynamics_climate.ref,
+    db.dynamics_climate.actual = db.dynamics_climate.actual,
+    comparison.age = comparison.age,
+    db.species.name = db.species.name
+  )
+  
+  return(graph)
+  
+})
+names(list.graph.dynamics.comparison) <- list.species
+
+
+# For Abies alba
+
+graph_dyna.61 <- list.graph.dynamics.comparison$`61` + 
+  theme_bw() +
+  ylab("Stand dominant height (m)")
+
+ggsave(
+  filename = "graph_dyna.61.jpg",
+  plot = graph_dyna.61,
+  path = dir.fig.tab,
+  height = 10, 
+  width = 17, 
+  units = "cm",
+  limitsize = FALSE
+)
+
+```
+
+# Graph interspecific
+
+```{r CC impact on SDH - interspecific}
+
+tar_load(db_CC.impact, store = dir.store.calibration)
+
+  # ploting parameters
+  y.min = -0.13
+  y.max = 0.23
+  text.size.main <- 7
+
+  # species as factor
+  db_CC.impact[, sp := as.factor(sp)]
+  
+  # add species names
+  db_CC.impact <- merge(
+    db_CC.impact[, .(stand, sp, impact)], 
+    db.species.name[, .(code, name, name.short)], 
+    by.x = "sp",
+    by.y = "code"
+    )
+  
+  # summary (median, Q1, Q3 and whiskers)
+  
+  db_CC.impact_summary <- db_CC.impact[
+      , .(
+        stand.number = length(unique(stand)),
+        median = median(impact),
+        Q1 = quantile(impact, 0.25),
+        Q3 = quantile(impact, 0.75)
+        ), by = c("name", "name.short", "sp")
+      ]
+  
+  db_CC.impact_summary[, ":="( # extreme possible values of the whiskers
+    whisker_low_min = Q1 - 1.5 *(Q3 - Q1),
+    whisker_high_max = Q3 + 1.5 *(Q3 - Q1)
+  )]
+  
+  for(name.short.selected in unique(db_CC.impact_summary$name.short)){ # proper whisker identification
+    
+    whisker_high_max <- db_CC.impact_summary[name.short == name.short.selected, whisker_high_max]
+    whisker_high.computed <- db_CC.impact[name.short == name.short.selected & impact <= whisker_high_max, max(impact)]
+    
+    whisker_low_min <- db_CC.impact_summary[name.short == name.short.selected, whisker_low_min]
+    whisker_low.computed <- db_CC.impact[name.short == name.short.selected & impact >= whisker_low_min, min(impact)]
+    
+    db_CC.impact_summary[name.short == name.short.selected, ":="(
+      whisker_low = whisker_low.computed,
+      whisker_high = whisker_high.computed
+    )]
+    
+  }
+
+  # identify cases with whiskers are out of the box
+  db_whisker_info_low <- db_CC.impact_summary[whisker_low < y.min - 0.02, .(name, name.short, label = whisker_low)]
+  db_whisker_info_high <- db_CC.impact_summary[whisker_high > y.max + 0.02, .(name, name.short, label = whisker_high)]
+
+  
+  # order db, order names as factor
+  db_CC.impact_summary <- db_CC.impact_summary[order(median, decreasing = F)]
+  name.short.ordered <- db_CC.impact_summary$name.short
+  name.ordered <- db_CC.impact_summary$name # usefull for graphical abstract 
+  db_CC.impact$name.short <- factor(db_CC.impact$name.short, levels = name.short.ordered)
+  db_CC.impact$name <- factor(db_CC.impact$name, levels = name.ordered)
+
+  
+  # plot boxplot ----
+  
+  graph.boxplot_CC.impact_interspecific <- ggplot(
+      data = db_CC.impact, 
+      aes(
+        x = name,
+        y = impact * 100
+      )
+    ) +
+    geom_abline(
+      slope = 0, 
+      intercept = 0,
+      color = "red", 
+      lwd = 0.2
+    ) +
+    geom_boxplot(
+      outlier.shape = NA,
+      lwd = 0.3, 
+      fill = "grey"
+    ) + 
+    theme_bw() +
+    geom_text(
+      data = db_CC.impact_summary,
+      aes(
+        x = name,
+        y = 100 * whisker_high + 1,
+        label = stand.number
+      ),
+      size = 0.3 * text.size.main,
+      angle = 0,
+      nudge_y = 0.5
+    ) +
+    geom_text( # not useful because empty db
+      data = db_whisker_info_low,
+      aes(
+        x = name,
+        y = 100 * y.min,
+        label = paste0(round(100 * label)," %")
+      ),
+      size = text.size.main / 4,
+      angle = 90,
+      nudge_y = 0,
+      nudge_x = -0.15
+    ) +
+    geom_text( #not usefull because empty db
+      data = db_whisker_info_high,
+      aes(
+        x = name,
+        y = 100 * y.max,
+        label = paste0(round(100 * label)," %")
+      ),
+      size = text.size.main / 4,
+      angle = 90,
+      nudge_y = 0.5,
+      nudge_x = -0.15
+    ) +
+    xlab(NULL) + 
+    ylab("Impact of climate change on site index (%)")+
+    theme(
+      axis.text.x = element_text(angle = 45, size = text.size.main, hjust = 1),
+      axis.text.y = element_text(size = text.size.main),
+      axis.title.y = element_text(size = text.size.main),
+      title = element_text(size = 5),
+      plot.caption = element_text(size = 3, hjust = 0),
+      panel.grid.major.x = element_blank()
+    ) +     
+    coord_cartesian(
+      ylim = c(100 * y.min, 100 * y.max)
+      ) +
+    scale_y_continuous(
+      breaks = round(seq(-10, 20, 5)),
+      minor_breaks = NULL,
+      labels = paste0(round(seq(-10, 20, 5)), "%")
+    )
+  # 
+  # boxplot_CC.impact_interspecific <- ggplot(
+  #     data = db_CC.impact, 
+  #     aes(
+  #       x = name.short,
+  #       y = impact * 100
+  #     )
+  #   ) +
+  #   geom_abline(
+  #     slope = 0, 
+  #     intercept = 0,
+  #     color = "red"
+  #   ) +
+  #   geom_boxplot(
+  #     outlier.shape = NA,
+  #     lwd = 0.3,
+  #     fill = "grey"
+  #   ) + 
+  #   geom_text(
+  #     data = db_CC.impact_summary,
+  #     aes(
+  #       x = name.short,
+  #       y = 100 * whisker_high + 0.5,
+  #       label = stand.number
+  #     ),
+  #     size = 0.3 * text.size.main,
+  #     angle = 0,
+  #     nudge_y = 0.5
+  #   ) +
+  #   geom_text(
+  #     data = db_whisker_info_low,
+  #     aes(
+  #       x = name.short,
+  #       y = 100 * y.min,
+  #       label = paste0(round(100 * label)," %")
+  #     ),
+  #     size = text.size.main / 4,
+  #     angle = 90,
+  #     nudge_y = 0,
+  #     nudge_x = -0.15
+  #   ) +
+  #   geom_text(
+  #     data = db_whisker_info_high,
+  #     aes(
+  #       x = name.short,
+  #       y = 100 * y.max,
+  #       label = paste0(round(100 * label)," %")
+  #     ),
+  #     size = text.size.main / 4,
+  #     angle = 90,
+  #     nudge_y = 0.5,
+  #     nudge_x = -0.15
+  #   ) +
+  #   labs(
+  #     x = "Species",
+  #     y = "Impact of climate change on site index (%)"
+  #   ) +
+  #   coord_cartesian(
+  #     ylim = c(100 * y.min, 100 * y.max)
+  #     ) +
+  #   scale_y_continuous(
+  #     breaks = round(seq(-10, 20, 5)),
+  #     minor_breaks = NULL,
+  #     labels = paste0(round(seq(-10, 20, 5)), "%")
+  #   ) +
+  #   theme_bw() + 
+  #   theme(
+  #     axis.text.x = element_text(angle = 45, size = text.size.main, hjust = 1, vjust = 0.7),
+  #     axis.text.y = element_text(size = text.size.main), 
+  #     panel.grid.major.x = element_blank(),
+  #     panel.grid.major.y = element_line(linewidth=.1, color="black") 
+  #   )
+
+
+ggsave(
+  filename = "graph.boxplot_CC.impact_interspecific.jpg",
+  plot = graph.boxplot_CC.impact_interspecific,
+  path = dir.fig.tab,
+  height = 12, 
+  width = 17, 
+  units = "cm",
+  limitsize = FALSE
+)
+
+```
+# Graph intraspecific
+
+```{r CC impact on SDH - intraspecific}
+
+db.Tmean.annual.ref <- unique(db.climate.ref[, .(stand, Tmean_9_8)])
+db_CC.impact.intra <- merge(db_CC.impact, db.Tmean.annual.ref, by = "stand")
+
+# x-axis
+interval.length <- 1
+min.climate <- min(db_CC.impact.intra[, Tmean_9_8])
+max.climate <- max(db_CC.impact.intra[, Tmean_9_8])
+
+min.x <- interval.length * min.climate %/% interval.length
+max.x <- interval.length * max.climate %/% interval.length + interval.length 
+breaks <- seq(min.x - interval.length/2 , max.x + interval.length/2, interval.length)
+labels <- seq(min.x , max.x, interval.length)
+  
+# create climate groups
+db_CC.impact.intra[, group := as.numeric(as.character(cut( # as.numeric to be able to manipulate the x-scale, as.character to have a correct conversion from factor to numeric (avoid going to 1, 2..., n)
+  Tmean_9_8,
+  breaks = breaks,
+  labels = labels,
+  include.lowest = TRUE
+)))]
+  
+# plot param
+text.size.main <- 6
+y.min <- -0.10
+y.max <- 0.30
+  
+# plot per species
+  
+boxplot_impact_climate <- lapply(list.species, function(sp.sel){
+  
+  db_impact_sp.sel <- db_CC.impact.intra[sp == sp.sel]
+  
+  # summary (median, Q1, Q3, etc)
+
+  db_impact_sp.sel_summary <- db_impact_sp.sel[
+    , .(
+      stand.number = length(unique(stand)),
+      median = median(impact),
+      Q1 = quantile(impact, 0.25),
+      Q3 = quantile(impact, 0.75)
+    ), by = group
+  ]
+  
+  db_impact_sp.sel_summary[, ":="( # add whiskers
+    whisker_low_min = Q1 - 1.5 *(Q3 - Q1),
+    whisker_high_max = Q3 + 1.5 *(Q3 - Q1)
+  )]
+  
+  # proper whisker identification
+  
+  for(group.selected in db_impact_sp.sel_summary$group){
+    
+    whisker_high_max <- db_impact_sp.sel_summary[group == group.selected, whisker_high_max]
+    whisker_high.computed <- db_impact_sp.sel[group == group.selected & impact <= whisker_high_max, max(impact)]
+    
+    whisker_low_min <- db_impact_sp.sel_summary[group == group.selected, whisker_low_min]
+    whisker_low.computed <- db_impact_sp.sel[group == group.selected & impact >= whisker_low_min, min(impact)]
+    
+    db_impact_sp.sel_summary[group == group.selected, ":="(
+      whisker_low = whisker_low.computed,
+      whisker_high = whisker_high.computed
+    )]
+    
+  }
+  
+  # identify cases with whiskers are out of the box
+  db_whisker_info_low <- db_impact_sp.sel_summary[whisker_low < y.min - 0.02, .(group, label = whisker_low)]
+  db_whisker_info_high <- db_impact_sp.sel_summary[whisker_high > y.max + 0.02, .(group, label = whisker_high)]
+  
+  # identify group with less than 10 stands
+  db_impact_sp.sel <- merge(
+    db_impact_sp.sel,
+    db_impact_sp.sel_summary[, .(group, stand.number)],
+    by = "group"
+  )
+  db_impact_sp.sel[, nb.stands.group := ifelse(stand.number >= 10, "high", "low")]
+
+  # plot
+  boxplot_impact_climate.selected <- ggplot(
+    data = db_impact_sp.sel, 
+    aes(
+      x = group,
+      y = impact * 100, 
+      group = group
+    )
+  ) + 
+    geom_boxplot(
+      aes(
+        fill = nb.stands.group
+      ),
+      outlier.shape = NA,
+      lwd = 0.1
+    ) + 
+    geom_text(
+      data = db_whisker_info_low,
+      aes(
+        x = group,
+        y = 100 * y.min,
+        label = paste0(round(100 * label),"%")
+      ),
+      size = 0.2 * text.size.main,
+      angle = 0,
+      nudge_y = 0,
+      nudge_x = -0.15
+    ) +
+    geom_text(
+      data = db_whisker_info_high,
+      aes(
+        x = group,
+        y = 100 * y.max,
+        label = paste0(round(100 * label),"%")
+      ),
+      size = 0.2 * text.size.main,
+      angle = 0,
+      nudge_y = 0.5,
+      nudge_x = -0.15
+    ) +
+    geom_abline(
+      slope = 0, 
+      intercept = 0,
+      color = "red", 
+      lwd = 0.1
+    ) +
+    coord_cartesian(
+      ylim = c(100 * y.min, 100 * y.max)
+    ) +
+    scale_x_continuous(
+      limits = c(min(labels), max(labels)),
+      breaks = labels, 
+      minor_breaks = F
+      ) +
+    scale_y_continuous(
+      breaks = seq(100 * y.min, 100 * y.max, 5),
+      minor_breaks = NULL,
+      labels = paste0(seq(100 * y.min, 100 * y.max, 5), "%")
+    ) +
+    scale_fill_manual(
+      name = "Number of stands",
+      values = c("white", "grey"),
+      breaks = c("low", "high"),
+      labels = c("less than 10 stands", "more than 10 stands")
+    ) +
+    labs(
+      x = "Annual mean temperature over the reference period (1891-1920)", 
+      y = "Impact of climate changes on site index (%)",
+      title = db.species.name[code == sp.sel, name]
+    ) +
+    theme(
+      legend.key.height = unit(0.5, 'cm'), #change legend key height
+      legend.key.width = unit(0.5, 'cm'), #change legend key width
+      legend.title = element_text(size=text.size.main), #change legend title font size
+      legend.text = element_text(size=text.size.main),
+      legend.position = "bottom",
+      legend.direction = "horizontal"
+    ) +
+    theme_bw()
+  
+  return(boxplot_impact_climate.selected)
+})
+names(boxplot_impact_climate) <- list.species
+
+graph.intraspecific_all <- plot_grid(
+  plotlist = lapply(boxplot_impact_climate[db.species.name[order(name), code]], function(x){
+    x <- x +
+      theme(
+        legend.position="none",
+        plot.margin = unit(c(0,0.1,0.1,0.1), "cm"),
+        plot.title = element_text(vjust = 0, size = 6),
+        axis.title = element_blank(),
+        axis.text.y = element_text(size = 6),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 5)
+      )
+    }),
+  ncol = 4,
+  nrow = 5
+) +
+draw_label("Annual mean temperature (°C) over the reference period (1891-1920)", x = 0.5, y = 0, hjust = 0.5, vjust = 1, angle = 0, size = 8) +
+draw_label("Impact of climate change on site index (%)", x = 0, y = 0.5, hjust = 0.5, vjust = 0, angle = 90, size = 8) +
+theme(plot.margin = unit(c(0.1,0,0.4,0.4), "cm"))
+
+ggsave(
+  filename = "graph.boxplot_CC.impact_intraspecific_all.jpg",
+  plot = graph.intraspecific_all,
+  path = dir.fig.tab,
+  height = 17, 
+  width = 17, 
+  units = "cm",
+  dpi = 900,
+  limitsize = FALSE
+)
+
+```
+
+
+# Supplementary materials
+
+## Species spatial locations
+
+```{r}
+
+map_France <- sf::st_read("data_source/France/France.shp")
+sf::st_crs(map_France)
+
+db.envi.plot <- merge(unique(db.envi[, .(stand, x, y)]), db.stand[, .(sp, stand)], by = "stand")
+db.envi.plot <- merge(db.envi.plot, db.species.name[, .(sp = code, name)], by = "sp")
+db.envi.plot[, N := .N, by = "sp"]
+db.envi.plot[, label := paste0(name, " \n (", N, " obs.)")]
+  
+map_stand.pure <- ggplot(data = db.envi.plot) +
+  geom_sf(data = map_France) +
+  geom_point(aes(x = x, y = y), size = 0.1) + # x and y are Lambert 93
+  facet_wrap(facets = "label", ncol = 4) +
+  theme_bw() +
+  theme(
+    axis.title = element_blank(),
+    strip.text = element_text(size = 7),
+    )
+  
+
+ggsave(
+  filename = "map_stand.pure.jpg",
+  plot = map_stand.pure,
+  path = dir.fig.tab,
+  height = 21, 
+  width = 17, 
+  units = "cm",
+  limitsize = FALSE
+)
+
+
+test <- unique(db.envi[,.(stand, Value1.HTOT, Value2.HTOT)])
+
+table(is.na(test$Value2.HTOT))
+
+
+```
+
+
+
+## Climate trends
+
+```{r}
+
+variable.focus <- c("Tmean_9_8", "precipitation_9_8", "cwb_9_8", "Tmean_6_8", "precipitation_6_8", "cwb_6_8")
+period.averaging.recent <- c(1991:2020)
+period.averaging.ref <- c(1891:1920)
+
+# compute climate evolution
+
+db.climate.recent.mean <- db.climate.actual[
+  climatic_year %in% period.averaging.recent,
+  lapply(.SD, function(x){mean(x)}),
+  by = stand,
+  .SDcols = variable.focus
+  ]
+db.climate.recent.mean <- melt(db.climate.recent.mean, id.vars = "stand", variable.name = "variable", value.name = "value")
+
+db.climate.ref.mean <- db.climate.actual[
+  climatic_year %in% period.averaging.ref,
+  lapply(.SD, function(x){mean(x)}),
+  by = stand,
+  .SDcols = variable.focus
+  ]
+db.climate.ref.mean <- melt(db.climate.ref.mean, id.vars = "stand", variable.name = "variable", value.name = "value")
+
+db.climate.compare.mean <- merge(db.climate.recent.mean, db.climate.ref.mean, by = c("stand", "variable"), suffixes = c(".recent", ".ref"))
+db.climate.compare.mean[, evolution := value.recent - value.ref]
+
+db.climate.compare.mean <- merge(db.climate.compare.mean, db.stand[, .(stand, sp)], by = "stand")
+
+# add name and order
+db.climate.compare.mean <- merge(db.climate.compare.mean, db.species.name, by.x = "sp", by.y = "code")
+factor.ordered <- db.species.name[order(name, decreasing = TRUE), name]
+db.climate.compare.mean$name <- factor(db.climate.compare.mean$name, levels = factor.ordered)
+
+# plot
+  
+
+  list_boxplot_climate <- lapply(variable.focus, function(variable.selected){
+    
+    db_climate_temp <- db.climate.compare.mean[variable == variable.selected]
+  
+    # units
+    if(str_detect(variable.selected, "Tmean")){ units = "°C"}
+    if(str_detect(variable.selected, "sgdd")){ units = "°C"}
+    if(str_detect(variable.selected, "precipitation")){ units = "mm"}
+    if(str_detect(variable.selected, "cwb")){ units = "mm"}
+    
+    # summary and order
+    db_climate_temp_summary <- db_climate_temp[,.(
+      N = .N, 
+      median = median(evolution), 
+      Q3 = quantile(evolution, 0.75)
+    ),
+    by = c("name")]
+    
+    c.y.labs <- paste0(db_climate_temp_summary$name, " \n (", db_climate_temp_summary$N, " obs.)")
+    names(c.y.labs) <- db_climate_temp_summary$name
+
+    # plot
+    boxplot_climate_variable.selected <-  ggplot() + 
+      geom_boxplot(
+        data = db_climate_temp,
+        aes(
+          y = name,
+          x = evolution
+        ),
+        outlier.shape = NA,
+        lwd = 0.1,
+        fill = "grey"
+      ) +
+      geom_vline(xintercept = 0, lty = "dashed", linewidth = 0.2) +
+      labs(
+        y = NULL, 
+        x = paste0("Evolution of ", variable.selected, "(", units,")")
+      ) +
+      scale_y_discrete(
+        "name",
+        labels = c.y.labs
+      ) +
+      theme_bw() +
+      theme(
+        plot.title = element_blank(),
+        legend.position = "none",
+        axis.title.y = element_blank()
+      )
+    
+    return(boxplot_climate_variable.selected)
+    
+  })
+  names(list_boxplot_climate) <- variable.focus
+  
+  # param
+  text.size = 6
+  
+  # annual graph
+  boxplot_climate.evolution.annual <- plot_grid(
+    plotlist = list(
+      list_boxplot_climate$Tmean_9_8 +
+      xlab("Annual mean temperatures (°C)") +
+      theme(
+        axis.title.y = element_blank(),
+        axis.text.y = element_text(size = text.size),
+        axis.title.x = element_text(size = text.size)
+      ),
+      list_boxplot_climate$precipitation_9_8 +
+      xlab("Annual precipitation (mm)") +
+      theme(
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = text.size)
+      ),
+      list_boxplot_climate$cwb_9_8 +
+      xlab("Annual climatic water balance (mm)") +
+      theme(
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = text.size)
+      )
+    ),
+    ncol = 3,
+    nrow = 1,
+    rel_widths = c(1.5, 1, 1)
+  ) + theme(
+    plot.margin = unit(c(0.4,0,0.2,0), "cm")
+  )
+  
+  ggsave(
+    filename = "graph.boxplot_climate.evolution.annual.jpg",
+    plot = boxplot_climate.evolution.annual ,
+    path = dir.fig.tab,
+    height = 12, 
+    width = 17, 
+    units = "cm",
+    dpi = 1200,
+    limitsize = FALSE
+  )
+  
+ # summer graph
+  boxplot_climate.evolution.summer <- plot_grid(
+    plotlist = list(
+      list_boxplot_climate$Tmean_6_8 +
+      xlab("Summer mean temperatures (°C)") +
+      theme(
+        axis.title.y = element_blank(),
+        axis.text.y = element_text(size = text.size),
+        axis.title.x = element_text(size = text.size)
+      ),
+      list_boxplot_climate$precipitation_6_8 +
+      xlab("Summer precipitation (mm)") +
+      theme(
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = text.size)
+      ),
+      list_boxplot_climate$cwb_6_8 +
+      xlab("Summer climatic water balance (mm)") +
+      theme(
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = text.size)
+      )
+    ),
+    ncol = 3,
+    nrow = 1,
+    rel_widths = c(1.5, 1, 1)
+  ) + theme(
+    plot.margin = unit(c(0.4,0,0.2,0), "cm")
+  )
+  
+  ggsave(
+    filename = "graph.boxplot_climate.evolution.summer.jpg",
+    plot = boxplot_climate.evolution.summer ,
+    path = dir.fig.tab,
+    height = 12, 
+    width = 17, 
+    units = "cm",
+    dpi = 1200,
+    limitsize = FALSE
+  )   
+```
+
+## Description of non-climatic variables
+
+```{r}
+
+# focus on stand used for calibration
+  db.envi.calib <- db.envi[stand %in% unique(db.stand$stand)]
+
+# quantitative variables
+
+  # compute variable description
+    db_summary_quanti <- rbindlist(lapply(setdiff(c.var_non.clim, qualitative_variables), function(variable.selected){
+      
+      db.envi.calib_temp <- db.envi.calib[,variable.selected, with = FALSE]
+      setnames(db.envi.calib_temp, variable.selected, "variable.selected.named")
+      
+      db_summary_variable.selected <- data.table(
+        variable = variable.selected,
+        min = round(db.envi.calib_temp[,min(variable.selected.named)], 1),
+        median = round(db.envi.calib_temp[,median(variable.selected.named)], 1),
+        max = round(db.envi.calib_temp[,max(variable.selected.named)], 1),
+        sd = round(db.envi.calib_temp[,sd(variable.selected.named)], 1)
+      )
+      
+      return(db_summary_variable.selected)
+      
+    }))
+  
+  # add unit and "clean" names
+    db_variables.quanti <- rbind(
+      data.table(variable = "pH", unit = "-", name = "pH"),
+      data.table(variable = "CN", unit = "-", name = "C:N"),
+      data.table(variable = "P2O5", unit = "-", name = "P2O5"),
+      data.table(variable = "soil_depth", unit = "dm", name = "soil depth"),
+      data.table(variable = "affroc_perc", unit = "%", name = "rock emergence"),
+      data.table(variable = "cailloux_perc", unit = "%", name = "rock presence"),
+      data.table(variable = "slope", unit = "%", name = "slope"),
+      data.table(variable = "expo_NS", unit = "1: North, -1 : South", name = "aspect (North-South)"),
+      data.table(variable = "expo_EW", unit = "1: East, -1 : West", name = "aspect (East-West)"),
+      data.table(variable = "SWHC", unit = "mm", name = "SWHC"),
+      data.table(variable = "radiation_annual", unit = "MJ/m2", name = "annual radiations")
+    )
+
+    db_variables.quanti <- merge(db_variables.quanti, db_summary_quanti, by = "variable")
+
+# qualitative variable
+    
+  # create output format for quali variables
+  db_variables.quali <- rbind(
+    data.table(variable = "ROCHE.Calc", distribution = character()),
+    data.table(variable = "soil_type", distribution = character()),
+    data.table(variable = "humus_type", distribution = character())
+  )
+  
+  db.envi.calib.quali <- unique(db.envi.calib[, c("stand", qualitative_variables), with = FALSE]) # get rid of the temporal dimension
+  
+  list_quali.tables <- lapply(qualitative_variables, function(variable.selected){
+    
+    table(db.envi.calib.quali[,variable.selected, with = FALSE])
+    
+  })
+  names(list_quali.tables) <- db_variables.quali$variable
+  
+
+
+```
+
+```{r variablesnonclimaticquanti, results='asis'}
+db_quanti <- db_variables.quanti[,
+    .(name, min, median, max, sd, unit)
+    ] %>% 
+  flextable() %>% 
+  align(part = "all") %>% # left align
+  # font(fontname = "Calibri (Body)", part = "all") %>% 
+  fontsize(size = 10, part = "body") %>% 
+  # add_footer_row(values = "Age in years, SDH in meters. Only stands with complete explanatory data and with origin-years equal or more recent than 1872 are considered.",
+  #                colwidths = 8) %>%
+  theme_booktabs() %>% # default theme
+  autofit()
+
+save_as_docx(db_quanti, path = paste0(dir.fig.tab, "/db_quanti.docx"))
+```
+
+```{r rochetype, results='asis'}
+
+db_ROCHE.Calc <- as.data.table(list_quali.tables$ROCHE.Calc)
+
+db_ROCHE.Calc[ROCHE.Calc == 0, type:= "non calcareous"]
+db_ROCHE.Calc[ROCHE.Calc == 1, type:= "calcareous"]
+
+db_ROCHE.Calc <- db_ROCHE.Calc[
+  ,.(
+    type,
+    N
+    )
+] %>% 
+  flextable() %>% 
+  align(part = "all") %>% # left align
+  add_footer_row(values = "N: Number of stands in each category", colwidths = 2) %>%
+  # font(fontname = "Calibri (Body)", part = "all") %>%
+  theme_booktabs() %>% # default theme
+  autofit()
+
+save_as_docx(db_ROCHE.Calc, path = paste0(dir.fig.tab, "/db_ROCHE.Calc.docx"))
+
+```
+
+```{r humustype, results='asis'}
+
+db_humus_type <- as.data.table(list_quali.tables$humus_type)
+
+db_humus_type <- db_humus_type[
+  ,.(
+    `humus type` = humus_type,
+    N
+    )
+] %>% 
+  flextable() %>% 
+  align(part = "all") %>% # left align
+  add_footer_row(values = "N: Number of stands in each category", colwidths = 2) %>%
+  # font(fontname = "Calibri (Body)", part = "all") %>%
+  theme_booktabs() %>% # default theme
+  autofit()
+
+save_as_docx(db_humus_type, path = paste0(dir.fig.tab, "/db_humus_type.docx"))
+```
+
+```{r soiltype, results='asis'}
+
+db_soil_type <- as.data.table(list_quali.tables$soil_type)
+
+db_soil_type <- db_soil_type[
+  ,.(
+    `soil type` = soil_type,
+    N
+    )
+] %>% 
+  flextable() %>% 
+  align(part = "all") %>% # left align
+  add_footer_row(values = "N: Number of stands in each category", colwidths = 2) %>%
+  # font(fontname = "Calibri (Body)", part = "all") %>%
+  theme_booktabs() %>% # default theme
+  autofit()
+
+save_as_docx(db_soil_type, path = paste0(dir.fig.tab, "/db_soil_type.docx"))
+
+```
+
+
+
+
+## Quality metrics
+
+```{r rmse and bias}
+
+# rmse and bias
+db_Hp_comparison <- merge(
+  db.stand[, .(stand, sp, Hp_obs = hfinal, year_observation)],
+  db.Hp_pred[, .(stand, sp, Hp_pred = Hp, year_observation = year)],
+  by = c("stand", "sp", "year_observation")
+  )
+
+db_rmse <- db_Hp_comparison[, .(
+  rmse = sqrt(mean((Hp_obs - Hp_pred)^2)),
+  rmspe =  sqrt(mean((100 *(Hp_obs - Hp_pred) / Hp_obs)^2)),
+  bias = mean(Hp_pred - Hp_obs),
+  bias.absolute = mean(abs(Hp_pred - Hp_obs))
+  ), by = "sp"]
+
+# optimism
+db_optimism.av <- db_optimism[, .(optimism = mean(optimism)), by = "sp"]
+
+
+# all quality indicators
+db_quality <- merge(db_rmse, db_optimism.av, by = "sp")
+db_quality <- merge(db_quality, db.species.name[, .(sp = code, name)], by = "sp")
+                                                
+db_quality.print <- db_quality[
+  order(name)
+  ][
+  ,.(
+    species = name,
+    `RMSE (m)` = round(rmse,1),
+    `RMSPE (%)` = round(rmspe,1),
+    `bias (m)` = round(bias,1), 
+    `optimism (%)` = round(optimism * 100,1)
+    )
+  ] %>% 
+  flextable() %>% 
+  italic(i = NULL, j = 1, italic = TRUE, part = "body") %>%
+  align_text_col(align = "center", header = TRUE, footer = TRUE) %>%
+  fontsize(size = 10, part = "body") %>% 
+  # add_footer_row(values = "Metrics computed over all stand used for the calibration",colwidths = 5) %>%
+  theme_booktabs() %>% # default theme
+  height_all(height = 1, unit = "cm") %>%
+  width(width = 1.5, unit = "cm") %>%
+  width(width = 2.5, j = 1, unit = "cm") %>%
+  align_text_col(align = "center", header = TRUE, footer = TRUE) %>%
+  align_nottext_col(align = "center", header = TRUE, footer = TRUE) %>%
+  autofit()
+
+  save_as_docx(db_quality.print, path = paste0(dir.fig.tab, "/db_quality.print.docx"))
+
+```
+
+## Graph optimism
+
+```{r}
+
+db_optimism.plot <- merge(db_optimism.av, db_description_species[, .(sp = species, stand.number, name)], by = "sp")
+  
+  # plot
+  graph_optimism_stand.nb <- ggplot(
+    data = db_optimism.plot, 
+    aes(
+      x = stand.number, 
+      y = optimism * 100,
+      label = name
+    )
+  ) +
+    geom_point(
+      size = 0.5
+    ) +
+    theme_bw() +
+    ggrepel::geom_text_repel(
+      color = "black",
+      alpha = 0.7,
+      size=2,
+      box.padding = unit(0.5, "lines")
+    ) +
+    labs(
+      x = "Number of stands",
+      y = "Optimism"
+    )+
+    theme(
+      axis.title = element_text(size = 6),
+      axis.text = element_text(size = 6)
+    ) +
+    scale_y_continuous(
+      breaks = round(seq(0, 100 * db_optimism.plot[, max(optimism)] + 10, 10)),
+      minor_breaks = NULL,
+      labels = paste0(round(seq(0, 100 * db_optimism.plot[, max(optimism)] + 10, 10)), "%")
+    )
+  
+  
+  ggsave(
+    filename = "graph_optimism_stand.nb.jpg",
+    plot = graph_optimism_stand.nb ,
+    path = dir.fig.tab,
+    height = 15, 
+    width = 17, 
+    units = "cm",
+    limitsize = FALSE
+  )
+
+
+```
+
+## SDH dynamics - all species
+
+```{r}
+
+  y.max <- 45
+  text.size.main <- 6
+
+# get legend
+  
+  graph.temp <- list.graph.dynamics.comparison[[1]] +
+    theme(
+      legend.title = element_text(size = text.size.main), #change legend title font size
+      legend.text = element_text(size = text.size.main), #change legend text font size
+      # legend.direction = "vertical",
+      legend.key.height = unit(0.5, "cm"),
+      legend.key.width = unit(0.7, "cm"),
+      legend.direction = "horizontal",
+      legend.spacing.y = unit(0.05, "cm")
+    )
+  legend <- get_legend(graph.temp)
+  
+  # remove title and legend
+  list.graph.dynamics.comparison_prepared <- lapply(list.graph.dynamics.comparison, function(graph.sel){
+
+    graph.sel <- graph.sel +
+      theme_bw() +
+      theme(
+        plot.title = element_blank(),
+        legend.position="none",
+        axis.title = element_blank(),
+        axis.text = element_text(size = text.size.main),
+        plot.margin = unit(c(0.3, 0, 0, 0.2), "cm")
+      ) +
+      ylim(c(0, y.max))
+
+    return(graph.sel)
+
+  })
+
+  # order
+  list.graph.dynamics.comparison_prepared <- list.graph.dynamics.comparison_prepared[db.species.name[order(name), code]]
+  
+  # plot grid
+
+  graph_dynamics.comparison_all <- plot_grid(
+    plotlist = list.graph.dynamics.comparison_prepared,
+    labels = db.species.name[match(names(list.graph.dynamics.comparison_prepared), code), name],
+    ncol = 4,
+    nrow = 5,
+    scale = 1,
+    label_size = text.size.main,
+    label_x = 0.05,
+    label_y = 1,
+    hjust = 0,
+    vjust = 1.5
+  ) +
+    draw_label("date", x = 0.5, y = 0, hjust = 0.5, vjust = 1, angle = 0, size = 1.2 * text.size.main) +
+    draw_label("SDH (m)", x = 0, y = 0.5, hjust = 1, vjust = 0.5, angle = 90, size = 1.2 * text.size.main) +
+    theme(plot.margin = unit(c(0, 0.3, 0, 0.3), "cm"))
+  
+  graph_dynamics.comparison_all <- plot_grid(
+    plotlist = list(graph_dynamics.comparison_all, legend),
+    nrow = 2,
+    rel_heights = c(1, 0.1)
+  )
+  
+  ggsave(
+    filename = "graph_dyna.all.jpg",
+    plot = graph_dynamics.comparison_all ,
+    path = dir.fig.tab,
+    height = 24, 
+    width = 17, 
+    units = "cm",
+    limitsize = FALSE
+  )  
+
+```
+## Relationship CC impact / climatic niche (interspecific)
+
+```{r}
+variable.focus <- c("Tmean_9_8", "precipitation_9_8")
+
+# average per stand for the relevant period and get the species
+db.climate.initial.mean <- db.climate.actual[climatic_year %in% ref.period, lapply(.SD, function(x){mean(x)}), by = "stand", .SDcols = variable.focus]
+
+db.climate.initial.mean <- merge(db.climate.initial.mean, db.stand[, .(stand, sp)], by = "stand")
+
+# merge climate and CC impact at the species level (take the mean)
+db_CC.impact_climate_mean <- merge(
+  db_CC.impact[, .(impact = mean(impact)), by = "sp"],
+  db.climate.initial.mean[, lapply(.SD, function(x){mean(x)}), by = "sp", .SDcols = variable.focus],
+  by = c("sp")
+  )
+
+# add species shortname
+db_CC.impact_climate_mean <- merge(db_CC.impact_climate_mean, db.species.name[, .(sp = code, name.short)], by = "sp")
+
+# plot
+  y.min <- 100 * min(db_CC.impact_climate_mean[, impact]) - 1
+  y.max <- 100 * max(db_CC.impact_climate_mean[, impact]) + 1
+  
+# plot for temperature
+#################################
+
+  graph_CC.impact_Tmean_mean <- ggplot(
+    data = db_CC.impact_climate_mean, 
+    aes(
+      x = Tmean_9_8,
+      y = 100 * impact,
+      label = name.short
+    )
+  ) +
+    geom_point(
+      size = 0.2
+    ) +
+    theme_bw() +
+    ggrepel::geom_text_repel(
+      color = "black",
+      alpha = 0.7,
+      size = 2,
+      box.padding = unit(0.3, "lines")
+    ) +
+    labs(
+      x = "Mean annual temperature (°C)", 
+      y = paste0("Climate change impact on site index (%)")
+    )+   
+    theme(
+      axis.title = element_text(size = 5), 
+      axis.text = element_text(size = 5)
+    ) +
+    coord_cartesian(
+      ylim = c(y.min, y.max)
+      ) +
+    scale_y_continuous(
+      breaks = round(seq(y.min, y.max, 5)),
+      minor_breaks = NULL,
+      labels = paste0(round(seq(y.min, y.max, 5)), "%")
+    )
+
+ggsave(
+  filename = "graph_CC.impact_Tmean_mean.jpg",
+  plot = graph_CC.impact_Tmean_mean,
+  path = dir.fig.tab,
+  height = 10, 
+  width = 10, 
+  units = "cm",
+  limitsize = FALSE
+)
+
+# plot for precipitation
+#################################
+
+  graph_CC.impact_precipitation_mean <- ggplot(
+    data = db_CC.impact_climate_mean, 
+    aes(
+      x = precipitation_9_8,
+      y = 100 * impact,
+      label = name.short
+    )
+  ) +
+    geom_point(
+      size = 0.2
+    ) +
+    theme_bw() +
+    ggrepel::geom_text_repel(
+      color = "black",
+      alpha = 0.7,
+      size = 2,
+      box.padding = unit(0.3, "lines")
+    ) +
+    labs(
+      x = "Mean annual precipitation (°C)", 
+      y = paste0("Climate change impact on site index (%)")
+    )+   
+    theme(
+      axis.title = element_text(size = 5), 
+      axis.text = element_text(size = 5)
+    ) +
+    coord_cartesian(
+      ylim = c(y.min, y.max)
+      ) +
+    scale_y_continuous(
+      breaks = round(seq(y.min, y.max, 5)),
+      minor_breaks = NULL,
+      labels = paste0(round(seq(y.min, y.max, 5)), "%")
+    )
+
+ggsave(
+  filename = "graph_CC.impact_precipitation_mean.jpg",
+  plot = graph_CC.impact_precipitation_mean,
+  path = dir.fig.tab,
+  height = 10, 
+  width = 10, 
+  units = "cm",
+  limitsize = FALSE
+)
+
+```
+
+## Parameter table
+
+```{r}
+
+# prepare db
+db_parameter <- rbindlist(lapply(list.species, function(sp.sel){
+  return(data.table(sp = sp.sel, list_db_param[[sp.sel]]))
+}))
+db_normalization <- rbindlist(lapply(list.species, function(sp.sel){
+  return(data.table(sp = sp.sel, list.db.normalization[[sp.sel]]))
+}))
+
+db_parameter <- db_parameter[, .(sp, param_class, param, estimate, sde, pvalue)] %>%
+  merge(db.species.name[, .(sp = code, name)], by = "sp") %>%
+  merge(db_normalization, by.x = c("sp", "param"), by.y = c("sp", "variable"), all.x = T)
+
+db_parameter <- db_parameter[,.(
+      name,
+      param_class,
+      param,
+      estimate = round(estimate, 2),
+      s.e. = round(sde, 2),
+      pvalue = ifelse(pvalue >= 10^-2, round(pvalue,2), "< 0.01"), 
+      normalization.mean = round(mean, 2),
+      normalization.sd = round(sd, 2)
+    )
+  ]
+
+# rename param_class
+db_parameter[param_class == "alpha" | param_class == "A0", param_class:= "exp."]
+db_parameter[param_class == "gamma" | param_class == "C0", param_class:= "decl."]
+db_parameter[param_class == "beta0", param_class:= "shape"]
+db_parameter[param_class == "sigma" | param_class == "delta", param_class:= "error"]
+
+db_parameter$param_class <- factor(db_parameter$param_class, levels = c("exp.", "decl.", "shape", "error"))
+
+# order
+key <- c("name", "param_class", "param")
+setkeyv(db_parameter, key)
+
+# rewrite "_square"
+db_parameter[str_detect(param, "square"), param:= paste0(str_remove(param, "_square"), "\n square")]
+
+# print
+db_parameter_print <- db_parameter %>% 
+  flextable() %>% 
+  italic(i = NULL, j = 1, italic = TRUE, part = "body") %>%
+  # colformat_double(j = c(3:6), digits = 1) %>%
+  set_header_labels(name = "Species", param_class = "Term", param = "Variable", estimate = "Estimate", pvalue = "p-value", normalization.mean = "Mean", normalization.sd = "s.d.") %>%
+  add_header_row(top = TRUE, values = c("", "Parameter", "Values", "Normalization constants"), colwidths = c(1,2,3,2)) %>%
+  # add_footer_row(values = "Age in years, SDH in meters. Only stands with complete data and with origin-year after 1871 are considered.",colwidths = 6) %>%
+  theme_booktabs() %>% # default theme
+  # font(fontname = "Calibri (Body)", part = "all") %>% 
+  fontsize(size = 6, part = "all") %>% 
+  align_text_col(align = "center", header = TRUE, footer = TRUE) %>%
+  align_nottext_col(align = "center", header = TRUE, footer = TRUE) %>%
+  line_spacing(i = NULL, j = NULL, space = 0.8, part = "body") %>%
+  height_all(0.5, part = "all", unit = "cm") %>%
+  # width(width = 1, unit = "cm") %>%
+  # width(width = 2, j = 1, unit = "cm") %>%
+  fit_to_width(
+  max_width = 17,
+  inc = 1L,
+  max_iter = 10,
+  unit = "cm"
+  ) 
+
+  save_as_docx(db_parameter_print, path = paste0(dir.fig.tab, "/db_parameter.docx"))
+
+```
+
+```{r check A0 >=0 and C0 >= 0}
+db_parameter_not.rounded <- rbindlist(lapply(list.species, function(sp.sel){
+  return(data.table(sp = sp.sel, list_db_param[[sp.sel]]))
+}))
+
+db_parameter_not.rounded[param_class %in% c("A0", "C0") & estimate < 0]
+
+```
+
+
+
+# Graphical abstract
+
+```{r graphical abstract}
+
+  y.min = -0.13
+  y.max = 0.23
+  text.size.main = 7
+
+  graphical_abstract <- 
+    ggplot(
+      data = db_CC.impact, 
+      aes(
+        x = name,
+        y = impact * 100
+      )
+    ) +
+    geom_abline(
+      slope = 0, 
+      intercept = 0,
+      color = "red", 
+      lwd = 0.2
+    ) +
+    geom_boxplot(
+      outlier.shape = NA,
+      lwd = 0.1, 
+      fill = "grey"
+    ) + 
+    theme_bw() +
+    geom_text(
+      data = db_CC.impact_summary,
+      aes(
+        x = name,
+        y = 100 * whisker_high + 1,
+        label = stand.number
+      ),
+      size = 0.2 * text.size.main,
+      angle = 0,
+      nudge_y = 0.5
+    ) +
+    geom_text( # not useful because empty db
+      data = db_whisker_info_low,
+      aes(
+        x = name,
+        y = 100 * y.min,
+        label = paste0(round(100 * label)," %")
+      ),
+      size = text.size.main / 4,
+      angle = 90,
+      nudge_y = 0,
+      nudge_x = -0.15
+    ) +
+    geom_text( #not usefull because empty db
+      data = db_whisker_info_high,
+      aes(
+        x = name,
+        y = 100 * y.max,
+        label = paste0(round(100 * label)," %")
+      ),
+      size = text.size.main / 4,
+      angle = 90,
+      nudge_y = 0.5,
+      nudge_x = -0.15
+    ) +
+    labs(
+      title = "Comparison of site index between actual recent climate (1950-2020) \nand before climate change reference climate (1891-1920)",
+      caption = "The number of stands for each species is indicated above the corresponding boxplot." 
+    ) + 
+    xlab(NULL) + 
+    ylab("Impact of climate change on site index (%)")+
+    theme(
+      axis.text.x = element_text(angle = 45, size = 4, hjust = 1),
+      axis.text.y = element_text(size = 4),
+      title = element_text(size = 5),
+      plot.caption = element_text(size = 3, hjust = 0),
+      panel.grid.major.x = element_blank()
+    ) +     
+    coord_cartesian(
+      ylim = c(100 * y.min, 100 * y.max)
+      ) +
+    scale_y_continuous(
+      breaks = round(seq(-10, 20, 5)),
+      minor_breaks = NULL,
+      labels = paste0(round(seq(-10, 20, 5)), "%")
+    )
+  
+      
+ggsave(
+  filename = "graphical_abstract.jpg",
+  plot = graphical_abstract ,
+  path = dir.fig.tab,
+  height = 7, 
+  width = 10, 
+  units = "cm",
+  limitsize = FALSE
+)
+
+  
+  
+```
